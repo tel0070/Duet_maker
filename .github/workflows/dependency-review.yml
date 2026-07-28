@@ -1,0 +1,19 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Flags newly-introduced dependencies with known vulnerabilities or
+      # incompatible licenses on each PR. Full results require either a
+      # public repository or GitHub Advanced Security on a private one —
+      # see docs/DEPLOYMENT.md for this repo's current status.
+      - uses: actions/dependency-review-action@v4

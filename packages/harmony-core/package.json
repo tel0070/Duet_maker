@@ -1,0 +1,22 @@
+{
+  "name": "@duet-maker/harmony-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "generate:examples": "tsx scripts/generate-examples.ts"
+  },
+  "dependencies": {
+    "@duet-maker/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

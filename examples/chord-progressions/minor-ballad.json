@@ -1,0 +1,104 @@
+{
+  "key": "A minor",
+  "bpm": 72,
+  "chords": [
+    {
+      "id": "chord-47",
+      "root": "A",
+      "quality": "min",
+      "extensions": [],
+      "startTime": 0,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-48",
+      "root": "F",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 4,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-49",
+      "root": "C",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 8,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-50",
+      "root": "G",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 12,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-51",
+      "root": "A",
+      "quality": "min",
+      "extensions": [],
+      "startTime": 16,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-52",
+      "root": "F",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 20,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-53",
+      "root": "C",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 24,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-54",
+      "root": "E",
+      "quality": "min",
+      "extensions": [],
+      "startTime": 28,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    }
+  ],
+  "sections": [
+    {
+      "id": "section-64",
+      "type": "verse",
+      "startTime": 0,
+      "endTime": 16,
+      "energy": 0.25,
+      "harmonyDensity": 0.3
+    },
+    {
+      "id": "section-65",
+      "type": "bridge",
+      "startTime": 16,
+      "endTime": 32,
+      "energy": 0.6,
+      "harmonyDensity": 0.55
+    }
+  ]
+}
