@@ -23,4 +23,15 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Node-executed maintenance scripts (not app/browser code) — need
+    // Node globals rather than DOM ones.
+    files: ["**/scripts/**/*.mjs", "**/*.config.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+      },
+    },
+  },
 );

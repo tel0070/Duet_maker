@@ -27,20 +27,24 @@ item's state changes.
 - [x] Vocal range constraint enforced (verified by test)
 - [x] Harmony changes when chords change (verified by test)
 - [x] Same seed → identical output (verified by test)
-- [x] 20+ unit tests (actual: 91)
+- [x] 20+ unit tests (actual: 95, plus a MIDI importer added during Phase 2 with its own round-trip tests)
 - [x] Generated MIDI is playable (valid SMF, verified with an independent byte reader)
 
 ## Phase 2 — Web piano roll & arrangement editor
 
-- [ ] MIDI import in the browser
-- [ ] Chord progression input
-- [ ] Piano roll (main melody)
-- [ ] Style picker + generate action wired to `packages/harmony-core`
-- [ ] Harmony track display with reasons/scores visible
-- [ ] Section-level regenerate command
-- [ ] Manual note editing
-- [ ] MIDI export from the UI
-- [ ] IndexedDB project save/restore across refresh
+- [x] MIDI import in the browser (`importMelodyFromMidi` in harmony-core, wired to a file input in the editor)
+- [x] Chord progression input (editable table: root/quality/timing, add/remove)
+- [x] Section input (editable table: type/timing/energy/density, add/remove)
+- [x] Piano roll (main melody + generated harmony, chord/section bands) — **display and click-to-select only, no drag** (see below)
+- [x] Style picker + generate action wired to `packages/harmony-core`
+- [x] Harmony track display with reasons/scores visible (full per-note table: relation, chord role, motion, confidence, reason)
+- [x] Manual note editing — **via a table (add/edit/delete rows with pitch/time/duration/lyric inputs), not by dragging notes on the piano roll**
+- [x] MIDI export from the UI (downloads a real, byte-verified .mid)
+- [x] IndexedDB project save/restore across refresh (single autosave slot, debounced; verified manually in a real browser — see `HANDOFF.md`)
+- [x] Bonus, not originally listed: project JSON export/import, sample project loader (3 demo songs), "다른 결과 보기" (reroll with a new seed)
+- [ ] **Not done**: dragging/resizing notes directly on the piano roll (table-based editing was substituted — see `docs/DECISIONS.md`)
+- [ ] **Not done**: section-level partial regeneration (regenerating one section while keeping the rest fixed) — current "생성" always regenerates the whole arrangement for the selected style; a true partial re-optimization needs planner changes not yet made (see `AGENTS.md` §9)
+- [ ] **Not done**: multi-project management (recent projects list, per-project delete) — only a single autosave slot exists
 
 ## Phase 3 — Guide playback & recording
 

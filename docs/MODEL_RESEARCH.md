@@ -10,7 +10,8 @@ adds browser-side pitch extraction or a singing-synthesis adapter.
 | Package | Version | License | Why |
 |---|---|---|---|
 | `zod` | ^3.23 | MIT | Schema validation for every data model in `shared-types` — actively maintained, zero runtime deps, TS-first, widely used so any future agent already knows it. |
-| `react` / `react-dom` | ^18.3 | MIT | Only dependency for the (currently minimal) web UI. Chosen over a framework-less approach because Phase 2's editor will need real component state (piano roll, multiple tracks) where plain DOM manipulation would get unwieldy fast. |
+| `react` / `react-dom` | ^18.3 | MIT | Web UI. Chosen over a framework-less approach because the Phase 2 editor's component state (piano roll, multiple editable tables, generated-result display) would get unwieldy fast with plain DOM manipulation. |
+| `zustand` | ^5.0 | MIT | Editor state (`apps/web/src/store/project-store.ts`). Small (no boilerplate providers/reducers), TS-first, and explicitly named as an acceptable option in the project's own recommended stack. See `docs/DECISIONS.md` for why not React Context or `persist` middleware. |
 
 ## Dev dependencies of note
 
@@ -22,6 +23,8 @@ adds browser-side pitch extraction or a singing-synthesis adapter.
 | `@testing-library/react` | MIT | Web unit tests; encourages testing rendered output over implementation details. |
 | `eslint` + `typescript-eslint` | MIT | Linting, flat config (ESLint 9). |
 | `tsx` | MIT | Runs the one-off `generate-examples.ts` maintenance script without a separate build step. |
+| `fake-indexeddb` | MIT | Polyfills `indexedDB` in jsdom for `apps/web`'s storage/store/editor unit tests — jsdom itself doesn't implement IndexedDB. Real browsers (and Playwright's real Chromium for e2e) need no polyfill. |
+| `@testing-library/user-event` | MIT | Simulates real user interactions (clicks, typing) in web unit tests, more realistically than firing raw DOM events. |
 
 ## Deliberately not used (and why)
 

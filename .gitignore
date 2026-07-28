@@ -42,3 +42,7 @@ examples/**/*.mp3
 # Model weights (downloaded via scripts, not committed)
 **/models/*.onnx
 **/models/*.bin
+
+# Synced from examples/demo-projects/ by scripts/sync-samples.mjs
+# (predev/prebuild) — examples/ is the single source of truth.
+apps/web/public/samples/

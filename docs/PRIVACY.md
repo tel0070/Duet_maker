@@ -8,13 +8,16 @@ this app, by default, ever, for the core feature set.
 
 ## What happens to a file you open in Duet Maker
 
-- **Today** (Phase 0/1 state): there is no upload UI yet at all — the
-  landing page has no file input. This section describes the *design
-  commitment* for when Phase 2 adds one, and will be updated with "as
-  verified" language once that UI exists and has been tested.
-- **MIDI / chord-progression input (Level 1, planned)**: parsed and held
-  entirely in browser memory / IndexedDB. No network request is made with
-  the file's content.
+- **Today (Level 1, implemented and verified)**: the editor's "MIDI 멜로디
+  가져오기" button reads the file with the browser's `File`/`ArrayBuffer`
+  APIs and parses it entirely client-side
+  (`packages/harmony-core/src/midi-import.ts`). Verified in this project's
+  own development process, with browser devtools open, that no network
+  request is made when importing a file. The same is true for the project
+  JSON import/export buttons. No file you open is ever sent anywhere.
+- **MIDI / chord-progression input (Level 1)**: parsed and held entirely in
+  browser memory / IndexedDB. No network request is made with the file's
+  content.
 - **Vocal/a cappella upload for pitch extraction (Level 2, planned,
   Phase 4)**: processed in a Web Worker, in the browser, on
   capability-permitting devices. Still no upload.
@@ -28,10 +31,13 @@ this app, by default, ever, for the core feature set.
 ## What is stored, and where
 
 - Project data (melody, chords, sections, generated arrangements, user
-  edits) — browser **IndexedDB**, once Phase 2 implements persistence.
-  Not implemented yet.
-- Exported files (MIDI, MusicXML, project JSON) — written to disk only
-  when the user explicitly clicks an export/download action.
+  edits) — browser **IndexedDB**, implemented as a single autosave slot
+  (`apps/web/src/lib/storage.ts`). Verified in this project's own
+  development process by editing a project, reloading the page, and
+  confirming it came back — including the generated arrangement.
+- Exported files (MIDI, MusicXML — MusicXML not yet implemented, JSON) —
+  written to disk only when the user explicitly clicks an export/download
+  action.
 - Nothing is stored on any server operated by this project. There is no
   server in this project's default architecture (see `ARCHITECTURE.md`).
 
@@ -47,12 +53,14 @@ out.
 
 ## Deleting your data
 
-Once IndexedDB persistence exists (Phase 2): clearing it will be exposed as
-an explicit in-app action, and is also achievable via the browser's own
+The editor's "새 프로젝트" button clears the single autosave slot. Full
+IndexedDB deletion is also achievable via the browser's own
 site-data-clearing UI (which will also delete any locally-cached model
-files from Level 2 features). Because everything lives in the browser,
-there is no server-side account or data for this project to delete on your
-behalf — there's nothing there to begin with.
+files from future Level 2 features). Because everything lives in the
+browser, there is no server-side account or data for this project to
+delete on your behalf — there's nothing there to begin with. A dedicated
+"모든 로컬 데이터 삭제" button covering more than the single autosave slot
+(e.g. once multi-project storage exists) has not been built yet.
 
 ## Third-party services
 

@@ -1,0 +1,81 @@
+.editor-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+.editor-loading {
+  padding: 40px;
+  text-align: center;
+  color: #b9b3dd;
+}
+
+.editor-section {
+  margin-bottom: 32px;
+}
+
+.editor-section h2 {
+  font-size: 1.05rem;
+  margin-bottom: 10px;
+}
+
+.editor-section h3 {
+  font-size: 0.9rem;
+  color: #cfc9f5;
+  margin: 0 0 6px;
+}
+
+.editor-project-fields {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.editor-project-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #b9b3dd;
+}
+
+.editor-project-fields input {
+  background: #1b1930;
+  color: #f2f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.editor-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.editor-generate-actions {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.editor-generate-actions button {
+  background: #8b7bff;
+  color: #151322;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-generate-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-error {
+  color: #ff8b8b;
+  font-size: 0.85rem;
+}

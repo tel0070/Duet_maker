@@ -1,0 +1,66 @@
+.piano-roll-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 360px;
+  background: #0f0e1a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.piano-roll-empty {
+  color: #8a84ab;
+  font-size: 0.9rem;
+  padding: 16px;
+}
+
+.piano-roll-section-band {
+  fill: rgba(139, 123, 255, 0.08);
+  stroke: rgba(139, 123, 255, 0.25);
+}
+
+.piano-roll-section-label {
+  fill: #b9b3dd;
+  font-size: 10px;
+}
+
+.piano-roll-chord-label {
+  fill: #ffb3d9;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.piano-roll-note {
+  cursor: pointer;
+  rx: 2px;
+}
+
+.piano-roll-note--melody {
+  fill: #6f7dff;
+  stroke: #b3bbff;
+  stroke-width: 1;
+}
+
+.piano-roll-note--melody:focus-visible {
+  outline: 2px solid #ffd166;
+  outline-offset: 1px;
+}
+
+.piano-roll-note--selected {
+  fill: #ffd166;
+  stroke: #fff2cc;
+}
+
+.piano-roll-note--harmony {
+  fill: #ff8bc4;
+  stroke: #ffffff;
+  stroke-dasharray: 2 1;
+  stroke-width: 1;
+  opacity: 0.9;
+}
+
+.piano-roll-harmony-mark {
+  fill: #2a0f1e;
+  font-size: 6px;
+  font-weight: 700;
+  pointer-events: none;
+}

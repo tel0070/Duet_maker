@@ -12,11 +12,14 @@ four arrangement styles.
 
 ## Status
 
-Early development. The harmony-generation engine (`packages/harmony-core`)
-is implemented and tested; the browser editor UI that would let a visitor
-actually use it (upload a melody, pick a style, hear/edit the result) has
-**not** been built yet — see `HANDOFF.md` and `ROADMAP.md` for exactly what
-works today versus what's planned.
+Early development, but usable end to end locally: the harmony-generation
+engine (`packages/harmony-core`) is implemented and tested, and
+`apps/web` now has a working editor — load a sample or import a MIDI
+melody, edit chords/sections/notes, pick a style, generate a real
+arrangement, export MIDI or a project file, and have it survive a page
+refresh. Piano-roll drag editing and per-section regeneration are not
+built yet (editing is table-based; regeneration covers the whole song) —
+see `HANDOFF.md` and `ROADMAP.md` for the exact current state.
 
 **Public URL:** not yet confirmed live. A GitHub Pages deploy workflow
 exists (`.github/workflows/deploy-production.yml`) and builds successfully,
@@ -50,7 +53,7 @@ just different weight numbers.
 ## Repository layout
 
 ```
-apps/web/               React + Vite landing page (editor UI: Phase 2, not started)
+apps/web/               React + Vite: landing page + a working editor (Phase 2)
 packages/shared-types/  Core data model + zod schemas + provider interfaces
 packages/harmony-core/  The harmony generation engine (pure TypeScript)
 local-engine/           Reserved for an optional local Python analysis server (Phase 5, not started)
@@ -69,6 +72,10 @@ pnpm validate   # lint + typecheck + test + build
 ```
 
 Windows: `scripts\setup-windows.bat`, then `scripts\start-web.bat`.
+
+After `pnpm dev`, open the printed URL and click "편곡 시작하기 (Beta)" to
+reach the editor, or go straight to `/#editor`. Pick a sample project from
+the dropdown, pick a style, click "화음 생성".
 
 Try the engine directly (no UI needed) by reading
 `packages/harmony-core/tests/generate.test.ts`, or inspect the pre-generated

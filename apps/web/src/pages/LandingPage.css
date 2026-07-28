@@ -1,18 +1,3 @@
-:root {
-  color-scheme: dark;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: #151322;
-  color: #f2f0ff;
-  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-}
-
 .page {
   max-width: 720px;
   margin: 0 auto;
@@ -47,6 +32,21 @@ body {
   margin: 0 auto;
 }
 
+.hero-cta {
+  display: inline-block;
+  margin-top: 20px;
+  background: #8b7bff;
+  color: #151322;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+}
+
+.hero-cta:hover {
+  background: #a698ff;
+}
+
 .notice {
   background: rgba(139, 123, 255, 0.12);
   border: 1px solid rgba(139, 123, 255, 0.35);
@@ -54,11 +54,6 @@ body {
   padding: 16px 20px;
   font-size: 0.95rem;
   line-height: 1.6;
-}
-
-h2 {
-  font-size: 1.2rem;
-  margin-bottom: 12px;
 }
 
 .feature-list {
@@ -123,11 +118,6 @@ h2 {
 .status-badge--unsupported {
   background: #3a3a44;
   color: #cfcfd8;
-}
-
-ul {
-  line-height: 1.7;
-  color: #cfc9f5;
 }
 
 .footer {

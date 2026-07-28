@@ -67,6 +67,48 @@ it's a structural decision with real tradeoffs (notably: Cloudflare Pages
 supports private-repo deploys on its free tier; GitHub Pages via Actions
 does not).
 
+## Phase 2 editor: no react-router
+
+The editor has exactly two views (`landing`, `editor`) for now, switched by
+`window.location.hash` in `apps/web/src/Root.tsx`. Adding react-router for
+two views would be pure overhead. Revisit when a third view (or nested
+routes within the editor) actually appears.
+
+## Phase 2 editor: Zustand, one store, debounced manual autosave
+
+Chosen over React Context (too much boilerplate for this much shared,
+frequently-updated state) and over Zustand's `persist` middleware (its
+`StateStorage` interface is string-based; validating the persisted blob
+against the exact `ProjectFile` zod schema on every load was important
+enough — see `packages/shared-types/src/project.ts`'s `migrateProjectFile`
+— that a hand-written IndexedDB wrapper calling it directly
+(`apps/web/src/lib/storage.ts`) was simpler than adapting `persist` to fit.
+Autosave is triggered explicitly at the end of each mutating store action
+(`queueAutosave`), debounced 500ms, rather than a generic
+subscribe-to-everything approach — keeps the "what triggers a save" logic
+visible at each call site.
+
+## Phase 2 editor: table-based note/chord/section editing, not piano-roll dragging
+
+`PianoRoll.tsx` renders melody + harmony + chords + sections and supports
+click-to-select, but not dragging, resizing, or double-click-to-add. All
+actual edits happen through `NoteTable`/`ChordTable`/`SectionTable`
+(add/edit/delete rows via plain form inputs). This was a scope cut to ship
+a complete, tested, working end-to-end flow (import → edit → generate →
+export → persist) in one pass, rather than a piano roll with half-finished
+drag interactions. Explicitly tracked as follow-up work in `AGENTS.md` §8,
+not hidden.
+
+## MIDI import lives in `packages/harmony-core`, not `apps/web`
+
+Symmetric to `midi-export.ts`. Keeps all Standard-MIDI-File byte-format
+knowledge (variable-length quantities, running status, track chunk
+parsing) in one tested, dependency-free package rather than splitting it
+across the engine and the UI layer. Heuristic used to pick "the melody"
+out of a multi-track file: the track with the most notes — documented as
+a real limitation (not a source-separation algorithm) in
+`packages/harmony-core/src/midi-import.ts`'s docstring.
+
 ## Failed/abandoned approaches worth remembering
 
 - **Recomputing a candidate's `relation` label unconditionally after

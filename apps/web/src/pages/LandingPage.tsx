@@ -1,4 +1,4 @@
-import "./App.css";
+import "./LandingPage.css";
 
 interface FeatureStatus {
   name: string;
@@ -10,22 +10,27 @@ const FEATURES: FeatureStatus[] = [
   {
     name: "화음 생성 엔진 (Harmony Core)",
     status: "beta",
-    note: "코드/멜로디/스타일 입력을 받아 4가지 스타일의 화음을 생성합니다. 알고리즘과 테스트는 완료되었지만 아직 편집 화면에 연결되지 않았습니다.",
+    note: "코드/멜로디/스타일 입력을 받아 4가지 스타일의 화음을 생성합니다. 편집기에 연결되어 실제로 사용할 수 있습니다.",
   },
   {
-    name: "MIDI 내보내기",
+    name: "편집기 (멜로디·코드·구간 입력, 화음 생성/내보내기)",
     status: "beta",
-    note: "생성된 화음을 표준 MIDI 파일로 내보내는 기능은 구현되어 있습니다 (예시: examples/midi).",
+    note: "MIDI 가져오기, 코드/구간 표 편집, 스타일별 생성, MIDI·JSON 내보내기, 자동 저장을 지원합니다. 마우스로 음표를 드래그하는 편집과 구간별 재생성은 아직 지원하지 않습니다 (표 입력으로 대체).",
   },
   {
-    name: "브라우저 편집 화면 (피아노롤 등)",
+    name: "프로젝트 저장",
+    status: "beta",
+    note: "브라우저 IndexedDB에 자동 저장되어 새로고침 후에도 복구됩니다. 여러 프로젝트를 목록으로 관리하는 기능은 아직 없습니다 (자동 저장 슬롯 1개).",
+  },
+  {
+    name: "가이드 재생·녹음",
     status: "unsupported",
-    note: "아직 개발 중입니다 (Phase 2). 지금은 GitHub 저장소의 예시 프로젝트로만 결과를 확인할 수 있습니다.",
+    note: "아직 개발 중입니다 (Phase 3).",
   },
   {
     name: "음원 업로드·자동 분석",
     status: "unsupported",
-    note: "아직 개발 중입니다 (Phase 4 이후). 현재는 MIDI/코드 진행 직접 입력만 지원할 계획입니다.",
+    note: "아직 개발 중입니다 (Phase 4 이후). 현재는 MIDI/코드 진행 직접 입력만 지원합니다.",
   },
 ];
 
@@ -37,7 +42,7 @@ const STATUS_LABEL: Record<FeatureStatus["status"], string> = {
   unsupported: "준비 중",
 };
 
-export function App() {
+export function LandingPage() {
   return (
     <div className="page">
       <header className="hero">
@@ -47,6 +52,9 @@ export function App() {
           솔로곡의 멜로디와 코드를 바탕으로 높은 화음, 낮은 화음, 유니즌, 대선율과 주고받기를
           조합해 새로운 듀엣 파트를 설계하세요.
         </p>
+        <a className="hero-cta" href="#editor">
+          편곡 시작하기 (Beta)
+        </a>
       </header>
 
       <section className="notice">
@@ -58,8 +66,8 @@ export function App() {
       <section>
         <h2>현재 개발 단계</h2>
         <p>
-          이 프로젝트는 초기 개발 단계입니다. 지금 이 페이지는 아직 편집 화면이 아니라, 프로젝트
-          소개와 진행 상태를 보여주는 랜딩 페이지입니다.
+          Harmony Core 엔진과 기본 편집기가 연결되어 실제로 화음을 생성하고 MIDI로 내보낼 수
+          있습니다. 다만 아직 초기 버전이며, 아래처럼 기능별로 지원 수준이 다릅니다.
         </p>
         <ul className="feature-list">
           {FEATURES.map((feature) => (
@@ -81,7 +89,7 @@ export function App() {
         <ul>
           <li>유료 AI API, 서버 저장, 로그인 없이 동작하도록 설계되어 있습니다.</li>
           <li>화음 생성은 규칙과 점수 기반 알고리즘이며, 자연스러운 AI 가창 합성은 아직 없습니다.</li>
-          <li>현재 확인 가능한 결과는 GitHub 저장소의 examples/ 폴더에 있는 샘플 프로젝트와 MIDI 파일입니다.</li>
+          <li>피아노롤은 표시와 클릭 선택만 지원하며, 음표 편집은 표(입력창)를 통해 이루어집니다.</li>
         </ul>
       </section>
 

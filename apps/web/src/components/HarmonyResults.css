@@ -1,0 +1,22 @@
+.harmony-results-empty {
+  color: #8a84ab;
+  font-size: 0.9rem;
+}
+
+.harmony-results-summary {
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.harmony-results-warnings {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #ffcf7a;
+  font-size: 0.82rem;
+}
+
+.harmony-results-reason {
+  color: #cfc9f5;
+  font-size: 0.8rem;
+  max-width: 320px;
+}
