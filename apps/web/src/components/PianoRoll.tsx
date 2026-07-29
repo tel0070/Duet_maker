@@ -1,11 +1,15 @@
 import type { ChordEvent, HarmonyNote, NoteEvent, RelationToMelody, SongSection } from "@duet-maker/shared-types";
 import { useState } from "react";
-import { dragToNotePatch, pxToBeats, pxToPitch, quantizeBeats } from "../lib/piano-roll-geometry.js";
+import { dragToBandPatch, dragToNotePatch, pxToBeats, pxToPitch, quantizeBeats } from "../lib/piano-roll-geometry.js";
 import "./PianoRoll.css";
 
 const PX_PER_BEAT = 28;
 const ROW_HEIGHT = 10;
 const HEADER_HEIGHT = 44;
+const SECTION_BAND_Y = 0;
+const SECTION_BAND_HEIGHT = 20;
+const CHORD_BAND_Y = 22;
+const CHORD_BAND_HEIGHT = 14;
 /** Below this many pixels of total pointer movement, a press+release counts
  * as a click (select), not a drag. */
 const DRAG_THRESHOLD_PX = 3;
@@ -28,14 +32,25 @@ const SECTION_LABELS_KO: Record<SongSection["type"], string> = {
   custom: "구간",
 };
 
+type DragKind = "note" | "chord" | "section";
+
 interface DragSession {
-  noteId: string;
+  kind: DragKind;
+  id: string;
   mode: "move" | "resize";
   pointerId: number;
   startClientX: number;
   startClientY: number;
-  original: { pitch: number; startTime: number; duration: number };
+  originalPitch: number | null;
+  originalStartTime: number;
+  originalDuration: number;
   moved: boolean;
+}
+
+interface LivePatch {
+  pitch: number | null;
+  startTime: number;
+  duration: number;
 }
 
 export interface PianoRollProps {
@@ -49,6 +64,10 @@ export interface PianoRollProps {
   onUpdateNote?: (id: string, patch: Partial<NoteEvent>) => void;
   onAddNote?: (note: { pitch: number; startTime: number; duration: number; velocity: number }) => void;
   onDeleteNote?: (id: string) => void;
+  /** Omit to keep chords table-only (no drag). */
+  onUpdateChord?: (id: string, patch: Partial<ChordEvent>) => void;
+  /** Omit to keep sections table-only (no drag). */
+  onUpdateSection?: (id: string, patch: Partial<SongSection>) => void;
 }
 
 export function PianoRoll({
@@ -61,9 +80,11 @@ export function PianoRoll({
   onUpdateNote,
   onAddNote,
   onDeleteNote,
+  onUpdateChord,
+  onUpdateSection,
 }: PianoRollProps) {
   const [drag, setDrag] = useState<DragSession | null>(null);
-  const [livePatch, setLivePatch] = useState<{ pitch: number; startTime: number; duration: number } | null>(null);
+  const [livePatch, setLivePatch] = useState<LivePatch | null>(null);
 
   interface RenderedHarmonyNote {
     note: NoteEvent;
@@ -96,11 +117,25 @@ export function PianoRoll({
   }
 
   function displayedNote(note: NoteEvent) {
-    if (drag && drag.noteId === note.id && livePatch) return livePatch;
+    if (drag && drag.kind === "note" && drag.id === note.id && livePatch) {
+      return { pitch: livePatch.pitch ?? note.pitch, startTime: livePatch.startTime, duration: livePatch.duration };
+    }
     return note;
   }
 
-  function beginDrag(e: React.PointerEvent<SVGRectElement>, note: NoteEvent, mode: "move" | "resize") {
+  function displayedBand(
+    kind: "chord" | "section",
+    id: string,
+    startTime: number,
+    duration: number,
+  ): { startTime: number; duration: number } {
+    if (drag && drag.kind === kind && drag.id === id && livePatch) {
+      return { startTime: livePatch.startTime, duration: livePatch.duration };
+    }
+    return { startTime, duration };
+  }
+
+  function beginNoteDrag(e: React.PointerEvent<SVGRectElement>, note: NoteEvent, mode: "move" | "resize") {
     if (!onUpdateNote || note.editable === false) {
       onSelectNote?.(note.id);
       return;
@@ -108,15 +143,43 @@ export function PianoRoll({
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({
-      noteId: note.id,
+      kind: "note",
+      id: note.id,
       mode,
       pointerId: e.pointerId,
       startClientX: e.clientX,
       startClientY: e.clientY,
-      original: { pitch: note.pitch, startTime: note.startTime, duration: note.duration },
+      originalPitch: note.pitch,
+      originalStartTime: note.startTime,
+      originalDuration: note.duration,
       moved: false,
     });
     setLivePatch({ pitch: note.pitch, startTime: note.startTime, duration: note.duration });
+  }
+
+  function beginBandDrag(
+    e: React.PointerEvent<SVGRectElement>,
+    kind: "chord" | "section",
+    id: string,
+    startTime: number,
+    duration: number,
+    mode: "move" | "resize",
+  ) {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({
+      kind,
+      id,
+      mode,
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      originalPitch: null,
+      originalStartTime: startTime,
+      originalDuration: duration,
+      moved: false,
+    });
+    setLivePatch({ pitch: null, startTime, duration });
   }
 
   function onDragMove(e: React.PointerEvent<SVGSVGElement>) {
@@ -126,25 +189,42 @@ export function PianoRoll({
     if (Math.abs(deltaXPx) + Math.abs(deltaYPx) > DRAG_THRESHOLD_PX) {
       setDrag({ ...drag, moved: true });
     }
-    const patch = dragToNotePatch({
-      mode: drag.mode,
-      originalPitch: drag.original.pitch,
-      originalStartTime: drag.original.startTime,
-      originalDuration: drag.original.duration,
-      deltaXPx,
-      deltaYPx,
-      pxPerBeat: PX_PER_BEAT,
-      rowHeight: ROW_HEIGHT,
-    });
-    setLivePatch(patch);
+    if (drag.kind === "note") {
+      const patch = dragToNotePatch({
+        mode: drag.mode,
+        originalPitch: drag.originalPitch ?? 60,
+        originalStartTime: drag.originalStartTime,
+        originalDuration: drag.originalDuration,
+        deltaXPx,
+        deltaYPx,
+        pxPerBeat: PX_PER_BEAT,
+        rowHeight: ROW_HEIGHT,
+      });
+      setLivePatch({ pitch: patch.pitch, startTime: patch.startTime, duration: patch.duration });
+    } else {
+      const patch = dragToBandPatch({
+        mode: drag.mode,
+        originalStartTime: drag.originalStartTime,
+        originalDuration: drag.originalDuration,
+        deltaXPx,
+        pxPerBeat: PX_PER_BEAT,
+      });
+      setLivePatch({ pitch: null, startTime: patch.startTime, duration: patch.duration });
+    }
   }
 
   function endDrag(e: React.PointerEvent<SVGSVGElement>) {
     if (!drag || e.pointerId !== drag.pointerId) return;
     if (drag.moved && livePatch) {
-      onUpdateNote?.(drag.noteId, livePatch);
-    } else {
-      onSelectNote?.(drag.noteId);
+      if (drag.kind === "note") {
+        onUpdateNote?.(drag.id, { pitch: livePatch.pitch ?? undefined, startTime: livePatch.startTime, duration: livePatch.duration });
+      } else if (drag.kind === "chord") {
+        onUpdateChord?.(drag.id, { startTime: livePatch.startTime, duration: livePatch.duration });
+      } else {
+        onUpdateSection?.(drag.id, { startTime: livePatch.startTime, endTime: livePatch.startTime + livePatch.duration });
+      }
+    } else if (drag.kind === "note") {
+      onSelectNote?.(drag.id);
     }
     setDrag(null);
     setLivePatch(null);
@@ -168,7 +248,7 @@ export function PianoRoll({
     <div className="piano-roll-scroll">
       <p className="piano-roll-hint">
         {onUpdateNote
-          ? "음표를 드래그해 이동하고, 오른쪽 끝을 드래그해 길이를 조절하세요. 빈 곳을 더블클릭하면 음표가 추가되고, 음표를 선택한 뒤 Delete 키로 삭제할 수 있습니다."
+          ? "음표를 드래그해 이동하고, 오른쪽 끝을 드래그해 길이를 조절하세요. 빈 곳을 더블클릭하면 음표가 추가되고, 음표를 선택한 뒤 Delete 키로 삭제할 수 있습니다. 코드와 구간도 같은 방식으로 드래그할 수 있습니다."
           : null}
       </p>
       <svg
@@ -190,34 +270,82 @@ export function PianoRoll({
         />
 
         {sections.map((section) => {
-          const end = Number.isFinite(section.endTime) ? section.endTime : maxTime;
+          const originalDuration = Number.isFinite(section.endTime)
+            ? section.endTime - section.startTime
+            : maxTime - section.startTime;
+          const shown = displayedBand("section", section.id, section.startTime, originalDuration);
+          const widthPx = Math.max(4, shown.duration * PX_PER_BEAT - 1);
           return (
             <g key={section.id}>
               <rect
-                x={section.startTime * PX_PER_BEAT}
-                y={0}
-                width={(end - section.startTime) * PX_PER_BEAT}
-                height={20}
-                className="piano-roll-section-band"
-              />
-              <text x={section.startTime * PX_PER_BEAT + 4} y={14} className="piano-roll-section-label">
+                x={shown.startTime * PX_PER_BEAT}
+                y={SECTION_BAND_Y}
+                width={widthPx}
+                height={SECTION_BAND_HEIGHT}
+                className={`piano-roll-section-band${onUpdateSection ? " piano-roll-band--draggable" : ""}`}
+                onPointerDown={
+                  onUpdateSection
+                    ? (e) => beginBandDrag(e, "section", section.id, section.startTime, originalDuration, "move")
+                    : undefined
+                }
+              >
+                <title>{`${SECTION_LABELS_KO[section.type]}: ${section.startTime}박부터 ${shown.duration}박 길이`}</title>
+              </rect>
+              <text x={shown.startTime * PX_PER_BEAT + 4} y={14} className="piano-roll-section-label" aria-hidden="true">
                 {SECTION_LABELS_KO[section.type]}
               </text>
+              {onUpdateSection && (
+                <rect
+                  x={shown.startTime * PX_PER_BEAT + widthPx - 3}
+                  y={SECTION_BAND_Y}
+                  width={4}
+                  height={SECTION_BAND_HEIGHT}
+                  className="piano-roll-band-resize-handle piano-roll-band-resize-handle--section"
+                  onPointerDown={(e) => beginBandDrag(e, "section", section.id, section.startTime, originalDuration, "resize")}
+                >
+                  <title>드래그해서 구간 길이 조절</title>
+                </rect>
+              )}
             </g>
           );
         })}
 
-        {chords.map((chord) => (
-          <text
-            key={chord.id}
-            x={chord.startTime * PX_PER_BEAT + 4}
-            y={38}
-            className="piano-roll-chord-label"
-          >
-            {chord.root}
-            {chord.quality}
-          </text>
-        ))}
+        {chords.map((chord) => {
+          const shown = displayedBand("chord", chord.id, chord.startTime, chord.duration);
+          const widthPx = Math.max(4, shown.duration * PX_PER_BEAT - 1);
+          return (
+            <g key={chord.id}>
+              <rect
+                x={shown.startTime * PX_PER_BEAT}
+                y={CHORD_BAND_Y}
+                width={widthPx}
+                height={CHORD_BAND_HEIGHT}
+                className={`piano-roll-chord-band${onUpdateChord ? " piano-roll-band--draggable" : ""}`}
+                onPointerDown={
+                  onUpdateChord ? (e) => beginBandDrag(e, "chord", chord.id, chord.startTime, chord.duration, "move") : undefined
+                }
+              >
+                <title>{`${chord.root}${chord.quality}: ${chord.startTime}박부터 ${shown.duration}박 길이`}</title>
+              </rect>
+              <text x={shown.startTime * PX_PER_BEAT + 4} y={32} className="piano-roll-chord-label" aria-hidden="true">
+                {chord.root}
+                {chord.quality}
+              </text>
+              {onUpdateChord && (
+                <rect
+                  x={shown.startTime * PX_PER_BEAT + widthPx - 3}
+                  y={CHORD_BAND_Y}
+                  width={4}
+                  height={CHORD_BAND_HEIGHT}
+                  className="piano-roll-band-resize-handle piano-roll-band-resize-handle--chord"
+                  onPointerDown={(e) => beginBandDrag(e, "chord", chord.id, chord.startTime, chord.duration, "resize")}
+                >
+                  <title>드래그해서 코드 길이 조절</title>
+                </rect>
+              )}
+            </g>
+          );
+        })}
 
         {melody.map((note) => {
           const shown = displayedNote(note);
@@ -235,7 +363,7 @@ export function PianoRoll({
                 className={`piano-roll-note piano-roll-note--melody${
                   selectedNoteId === note.id ? " piano-roll-note--selected" : ""
                 }`}
-                onPointerDown={(e) => beginDrag(e, note, "move")}
+                onPointerDown={(e) => beginNoteDrag(e, note, "move")}
                 onClick={() => {
                   if (!onUpdateNote) onSelectNote?.(note.id);
                 }}
@@ -256,7 +384,7 @@ export function PianoRoll({
                   width={4}
                   height={ROW_HEIGHT - 1}
                   className="piano-roll-resize-handle"
-                  onPointerDown={(e) => beginDrag(e, note, "resize")}
+                  onPointerDown={(e) => beginNoteDrag(e, note, "resize")}
                 >
                   <title>드래그해서 길이 조절</title>
                 </rect>

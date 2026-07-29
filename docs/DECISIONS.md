@@ -145,11 +145,11 @@ and it was tracked as explicit follow-up work rather than left unstated.
 The follow-up added drag-to-move, drag-to-resize, double-click-to-add, and
 Delete-to-remove for **melody notes** on the piano roll
 (`apps/web/src/components/PianoRoll.tsx`), on top of the existing tables
-(which still work and stay in sync). Chords and sections remain table-only
-— dragging a chord/section band wasn't judged worth the extra interaction
-design (resizing a chord changes its harmonic content, not just its
-shape, so "drag the edge" is less obviously the right UI than it is for a
-melody note) until a concrete need shows up.
+(which still work and stay in sync). Chords and sections stayed
+table-only for that pass — dragging a chord/section band wasn't judged
+worth the extra interaction design (resizing a chord changes its harmonic
+content, not just its shape, so "drag the edge" is less obviously the
+right UI than it is for a melody note) until a concrete need showed up.
 
 The drag math (`apps/web/src/lib/piano-roll-geometry.ts`: px↔beat/pitch
 conversion, snapping to a sixteenth-note grid, MIDI-range clamping, and
@@ -161,6 +161,35 @@ verified with a real browser (Playwright: `piano-roll-drag.spec.ts`).
 A click vs. drag is disambiguated by total pointer movement
 (`DRAG_THRESHOLD_PX = 3`): under that, releasing selects the note instead
 of committing a (likely accidental) move.
+
+A second follow-up extended dragging to **chord and section bands** too
+(pink/purple bands above the melody). Rather than write a second geometry
+module, `dragToBandPatch` reuses the same beat-snapping and floor-at-one-
+snap-unit logic as `dragToNotePatch`, minus the pitch dimension bands
+don't have. `PianoRoll.tsx`'s single `DragSession`/`onDragMove`/`endDrag`
+pointer-handling flow is shared across all three drag kinds (note, chord,
+section) via a `kind` discriminator, rather than three separate handler
+sets — the only kind-specific branching is which patch function to call
+and which callback (`onUpdateNote`/`onUpdateChord`/`onUpdateSection`) to
+invoke on release. `SongSection` has `startTime`/`endTime` rather than
+`startTime`/`duration` like `ChordEvent` and `NoteEvent`, so the section
+case converts `endTime - startTime` to a duration before the shared patch
+math and converts back (`startTime + duration → endTime`) before calling
+`onUpdateSection`, keeping the derived-duration concept purely local to
+`PianoRoll.tsx` rather than leaking into the schema.
+
+Chord and section resize handles use a distinct CSS class
+(`piano-roll-band-resize-handle`, with `--chord`/`--section` modifiers)
+from melody notes' `piano-roll-resize-handle`, purely so the pre-existing
+note-drag e2e tests' `.piano-roll-resize-handle` locator keeps resolving
+to a melody note's handle — sections and chords render earlier in the SVG
+than melody notes, so without a distinct class, `.first()` on a shared
+class would have silently started grabbing the wrong element. Double-
+click-to-add and Delete-to-remove were not extended to chords/sections in
+this pass — both already have dedicated "추가"/"삭제" controls in their
+tables, and double-click/Delete conventions for a *band* (what does
+Delete do if focus is ambiguous between a note and a section?) weren't
+judged worth resolving without a concrete request.
 
 ## Phase 3 guide playback: plain Web Audio oscillators, no audio library
 

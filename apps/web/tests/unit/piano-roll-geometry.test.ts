@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampPitch,
+  dragToBandPatch,
   dragToNotePatch,
   pitchToPxY,
   pxToBeats,
@@ -124,6 +125,57 @@ describe("dragToNotePatch — resize", () => {
       deltaYPx: 0,
       pxPerBeat: 28,
       rowHeight: 10,
+    });
+    expect(patch.duration).toBeGreaterThan(0);
+    expect(patch.duration).toBe(0.25);
+  });
+});
+
+describe("dragToBandPatch — move", () => {
+  it("shifts startTime forward, leaving duration untouched", () => {
+    const patch = dragToBandPatch({
+      mode: "move",
+      originalStartTime: 2,
+      originalDuration: 4,
+      deltaXPx: 28, // +1 beat at 28px/beat
+      pxPerBeat: 28,
+    });
+    expect(patch.startTime).toBe(3);
+    expect(patch.duration).toBe(4);
+  });
+
+  it("never produces a negative startTime", () => {
+    const patch = dragToBandPatch({
+      mode: "move",
+      originalStartTime: 0.25,
+      originalDuration: 4,
+      deltaXPx: -1000,
+      pxPerBeat: 28,
+    });
+    expect(patch.startTime).toBe(0);
+  });
+});
+
+describe("dragToBandPatch — resize", () => {
+  it("only changes duration, never startTime", () => {
+    const patch = dragToBandPatch({
+      mode: "resize",
+      originalStartTime: 2,
+      originalDuration: 4,
+      deltaXPx: 56, // +2 beats
+      pxPerBeat: 28,
+    });
+    expect(patch.startTime).toBe(2);
+    expect(patch.duration).toBe(6);
+  });
+
+  it("never shrinks a band to zero or negative length", () => {
+    const patch = dragToBandPatch({
+      mode: "resize",
+      originalStartTime: 2,
+      originalDuration: 4,
+      deltaXPx: -1000,
+      pxPerBeat: 28,
     });
     expect(patch.duration).toBeGreaterThan(0);
     expect(patch.duration).toBe(0.25);

@@ -36,7 +36,7 @@ output before trusting it, and update it the moment it goes stale.
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
 | `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`). 101 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, multi-project IndexedDB storage with a "최근 프로젝트" list (open/delete), Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: dragging chords/sections on the piano roll, two-sided continuity for section regeneration. |
+| `apps/web` | Landing page + a working editor (**Phase 2 checklist fully done**) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete for melody notes *and* drag/resize for chord and section bands on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, multi-project IndexedDB storage with a "최근 프로젝트" list (open/delete), Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: two-sided continuity for section regeneration (see §9); everything else originally scoped for Phase 2/3 is built. |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
 | `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; the Phase 3 playback engine is small enough to live in `apps/web/src/lib/audio-engine.ts` rather than a separate `audio-ui` package — revisit if audio code grows enough to be reused outside `apps/web`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
@@ -143,10 +143,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
 - `apps/web/tests/e2e/` — Playwright specs covering the landing page, a
   real end-to-end editor flow (load sample → generate → verify the result
   table, switch style → verify the result actually changed, no console
-  errors during use), piano-roll drag/resize/add/delete (these can only
-  really be verified with a real layout engine — jsdom doesn't lay out
-  SVG, so the pointer-event wiring itself isn't covered by unit tests),
-  the section-regenerate button's enabled/disabled state and wiring,
+  errors during use), piano-roll drag/resize/add/delete for melody notes
+  *and* drag-to-move/drag-to-resize for chord and section bands (these
+  can only really be verified with a real layout engine — jsdom doesn't
+  lay out SVG, so the pointer-event wiring itself isn't covered by unit
+  tests; `piano-roll-band-drag.spec.ts` also confirms the note
+  resize-handle locator used by the pre-existing note-drag tests still
+  resolves correctly now that chord/section resize handles exist in the
+  DOM too, since they intentionally use a different CSS class), the
+  section-regenerate button's enabled/disabled state and wiring,
   guide playback (play/stop status text, both-tracks-together status,
   auto-stop once a short note actually finishes — this one genuinely
   waits out real Web Audio scheduling in Chromium, not a mock; plus A-B
@@ -192,18 +197,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. Drag/resize support for chords and sections on the piano roll (currently
-   only melody notes are drag-editable there — chords/sections are
-   table-only). The tables already cover the same edits, so this is a
-   convenience improvement, not a missing capability.
-3. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
+2. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
    seam into the locked note *after* the regenerated section, not just the
    one before it — if the current one-directional version proves
    noticeable in practice.
-4. Phase 3's checklist is now fully done, and multi-project management
-   (§2 above) is now done too. Next phase-scale work is Phase 4 (vocal
-   file analysis / browser-side pitch extraction) — a materially larger
-   undertaking than anything above; don't start it without re-reading
+3. Phase 2's and Phase 3's checklists are now both fully done (multi-project
+   management and chord/section piano-roll dragging closed out the last
+   Phase 2 items). Next phase-scale work is Phase 4 (vocal file analysis /
+   browser-side pitch extraction) — a materially larger undertaking than
+   anything above; don't start it without re-reading
    `docs/PRODUCT_SPEC.md`'s Phase 4 section first.
 
 ## 9. Known issues / deliberate simplifications
@@ -223,12 +225,22 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   proposed structure were not created — see `docs/DECISIONS.md`.
 - The piano roll (`apps/web/src/components/PianoRoll.tsx`) supports
   drag-to-move, drag-to-resize, double-click-to-add, and Delete-to-remove
-  for **melody notes only** — chords and sections are still table-only
-  (`ChordTable.tsx`/`SectionTable.tsx`). The drag geometry math is a pure
-  module (`apps/web/src/lib/piano-roll-geometry.ts`, unit-tested) separate
-  from the pointer-event wiring (which can only really be verified with
-  Playwright, since jsdom doesn't lay out SVG — see
-  `apps/web/tests/e2e/piano-roll-drag.spec.ts`).
+  for melody notes, and drag-to-move/drag-to-resize for chord bands (pink)
+  and section bands (purple) too — all editable in sync with their tables
+  (`ChordTable.tsx`/`SectionTable.tsx`), whichever is more convenient for a
+  given edit. Chord/section resize handles use a distinct CSS class
+  (`piano-roll-band-resize-handle`, not `piano-roll-resize-handle`) from
+  melody notes' resize handles specifically so existing note-drag e2e
+  locators keep resolving to the right element now that more resize
+  handles exist earlier in DOM order. The drag geometry math (both
+  `dragToNotePatch` for notes and `dragToBandPatch` for chords/sections)
+  is a pure module (`apps/web/src/lib/piano-roll-geometry.ts`,
+  unit-tested) separate from the pointer-event wiring (which can only
+  really be verified with Playwright, since jsdom doesn't lay out SVG —
+  see `apps/web/tests/e2e/piano-roll-drag.spec.ts` and
+  `piano-roll-band-drag.spec.ts`). Double-click-to-add and
+  Delete-to-remove remain melody-note-only — chords/sections are always
+  added/removed via their tables.
 - "화음 생성" always regenerates the *entire* arrangement for the selected
   style (it does replace only that style's entry in `project.arrangements`,
   not duplicate it — see `project-store.test.ts`). Per-section regeneration

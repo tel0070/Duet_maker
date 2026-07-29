@@ -76,3 +76,41 @@ export function dragToNotePatch(input: DragToNotePatchInput): NotePatch {
     duration: input.originalDuration,
   };
 }
+
+export interface DragToBandPatchInput {
+  mode: "move" | "resize";
+  originalStartTime: number;
+  originalDuration: number;
+  deltaXPx: number;
+  pxPerBeat: number;
+  snapBeats?: number;
+}
+
+export interface BandPatch {
+  startTime: number;
+  duration: number;
+}
+
+/**
+ * Same idea as `dragToNotePatch` but for horizontal-only bands (chords,
+ * sections) that have no pitch dimension — `mode: "move"` shifts start
+ * time, `mode: "resize"` only changes duration (dragging the right edge),
+ * with the same one-snap-unit floor.
+ */
+export function dragToBandPatch(input: DragToBandPatchInput): BandPatch {
+  const snap = input.snapBeats ?? 0.25;
+  const deltaBeats = pxToBeats(input.deltaXPx, input.pxPerBeat);
+
+  if (input.mode === "resize") {
+    const rawDuration = input.originalDuration + deltaBeats;
+    return {
+      startTime: input.originalStartTime,
+      duration: Math.max(snap, quantizeBeats(rawDuration, snap)),
+    };
+  }
+
+  return {
+    startTime: Math.max(0, quantizeBeats(input.originalStartTime + deltaBeats, snap)),
+    duration: input.originalDuration,
+  };
+}

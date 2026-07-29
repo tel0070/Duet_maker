@@ -2,14 +2,14 @@
 
 ## Last updated
 
-2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration + multi-project management, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
+2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration + multi-project management + chord/section piano-roll dragging, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
 
 ## Current phase
 
-Phase 0 and Phase 1 are done. Phase 2 (web editor) is functional and now
-includes multi-project management; the only remaining Phase 2 gap is
-chord/section piano-roll dragging. **Phase 3 (guide playback & recording)
-checklist is fully done**, including the "재생하며 녹음" combined action.
+Phase 0 and Phase 1 are done. **Phase 2 (web editor) checklist is now
+fully done**, including multi-project management and chord/section
+piano-roll dragging. **Phase 3 (guide playback & recording) checklist is
+fully done**, including the "재생하며 녹음" combined action.
 
 ## Working features
 
@@ -23,9 +23,10 @@ checklist is fully done**, including the "재생하며 녹음" combined action.
 - `apps/web`: landing page (`#`) + editor (`#editor`). The editor:
   - Loads a sample project, starts blank, or imports a melody from a
     `.mid` file.
-  - Edits chords, sections, and melody notes via tables, **and** melody
-    notes directly on the piano roll (drag to move/resize, double-click
-    to add, Delete to remove).
+  - Edits chords, sections, and melody notes via tables, **and** directly
+    on the piano roll — melody notes with drag to move/resize,
+    double-click to add, Delete to remove; chord and section bands with
+    drag to move/resize (add/remove for those stays table-only).
   - Generates a real arrangement per style via `generateDuetArrangement`,
     or regenerates just one section via `regenerateSection`.
   - Shows the full per-note result table (relation, chord role, motion,
@@ -58,11 +59,10 @@ checklist is fully done**, including the "재생하며 녹음" combined action.
 
 ## Partially working features
 
-- **Piano-roll drag editing covers melody notes only** — chords/sections
-  are table-only.
 - **Section regeneration's continuity is one-directional** (voice-leads
   in from the note before the section, doesn't specially optimize the
-  seam back out).
+  seam back out). This is the only remaining item across Phase 2 and
+  Phase 3's original checklists.
 
 ## Known failures / unverified claims
 
@@ -126,6 +126,17 @@ checklist is fully done**, including the "재생하며 녹음" combined action.
   previous edit); `importProjectFile` keeps the file's own id (so
   re-importing your own export resumes that same entry). See
   `docs/DECISIONS.md`.
+- **Chord/section piano-roll dragging reuses the melody-note drag flow**
+  via a `kind` discriminator (`"note" | "chord" | "section"`) in
+  `PianoRoll.tsx`'s single `DragSession`/`onDragMove`/`endDrag` pipeline,
+  and a new `dragToBandPatch` geometry function that's `dragToNotePatch`
+  minus the pitch dimension. `SongSection`'s `endTime` is converted to/from
+  a derived `duration` locally in `PianoRoll.tsx` so the shared band-patch
+  math doesn't need to know about that schema difference. Chord/section
+  resize handles use a distinct CSS class from melody notes' handles
+  specifically so the pre-existing note-drag e2e locators keep resolving
+  correctly now that more resize handles exist earlier in the SVG's DOM
+  order. See `docs/DECISIONS.md`.
 
 ## Next recommended task
 
@@ -133,66 +144,63 @@ Pick one:
 
 1. **Confirm the GitHub Pages deployment decision** with a human — open
    since Phase 0, still unresolved.
-2. Chord/section piano-roll dragging, or two-sided section-regeneration
-   continuity — see `AGENTS.md` §8.
-3. Phase 3's checklist and multi-project management are now both fully
-   done; the next phase-scale work is Phase 4 (vocal file analysis /
-   browser-side pitch extraction) — read `docs/PRODUCT_SPEC.md`'s Phase 4
-   section before starting, it is a materially bigger undertaking than
-   anything above.
+2. Two-sided section-regeneration continuity — see `AGENTS.md` §9. This is
+   the only item left across Phase 2 and Phase 3's original checklists.
+3. Phase 2's and Phase 3's checklists are now both fully done; the next
+   phase-scale work is Phase 4 (vocal file analysis / browser-side pitch
+   extraction) — read `docs/PRODUCT_SPEC.md`'s Phase 4 section before
+   starting, it is a materially bigger undertaking than anything above.
 
 ## Commands to reproduce current state
 
 ```bash
 pnpm install
 pnpm validate    # lint + typecheck + test + build, all packages
-pnpm test:e2e    # Playwright — drag/resize, section regen, playback, recording, sync, project management
+pnpm test:e2e    # Playwright — drag/resize (notes + chord/section bands), section regen, playback, recording, sync, project management
 ```
 
-Expected: all green. As of this handoff: 200 unit tests (20 shared-types +
-101 harmony-core + 79 web) and 28 Playwright e2e tests, all passing; lint
+Expected: all green. As of this handoff: 204 unit tests (20 shared-types +
+101 harmony-core + 83 web) and 33 Playwright e2e tests, all passing; lint
 and typecheck clean; build succeeds.
 
 To see it running locally: `pnpm dev`, click "편곡 시작하기 (Beta)", pick a
 sample, "화음 생성", try "가이드 재생" → "함께 재생" (try the "구간 반복"
 and "카운트인" toggles too), "녹음" → "녹음 시작", "재생하며 녹음" to try
-both together (grant the microphone permission prompt), and add a note or
-rename the project to see it appear under "최근 프로젝트".
+both together (grant the microphone permission prompt), add a note or
+rename the project to see it appear under "최근 프로젝트", and drag a
+chord or section band on the piano roll.
 
 ## Files changed in the latest major work (this session)
 
-Multi-project management, added right after syncing recording with
-playback:
+Chord/section piano-roll dragging, added right after multi-project
+management:
 
-- `apps/web/src/lib/storage.ts` — rewritten from a single "current" slot
-  to `saveProject`/`loadProject`/`listProjects`/`deleteProject`/
-  `setLastOpenedProject`/`loadLastOpenedProject`/`clearAllProjects`, all
-  keyed by each project's own id, plus a lazy one-time migration of any
-  pre-existing single-slot save.
-- `apps/web/src/store/project-store.ts` — added `projects` state and
-  `refreshProjectList`/`openProject`/`deleteProjectById`/
-  `importProjectFile` actions; `loadSampleProject` now forks to a new id;
-  `newProject` no longer touches storage; autosave now refreshes the
-  project list on success.
-- `apps/web/src/components/ProjectList.tsx` (+ CSS) — new "최근 프로젝트"
-  panel: name, last-updated time, "열기"/"삭제" per row, highlights the
-  currently open project.
-- `apps/web/src/components/Toolbar.tsx` — JSON import now calls
-  `importProjectFile` (keeps the file's id) instead of reusing the sample
-  loader (which forks).
-- `apps/web/src/pages/EditorPage.tsx` — new "최근 프로젝트" section.
-- `apps/web/tests/unit/storage.test.ts` — rewritten for the multi-project
-  API, plus a dedicated legacy-migration test.
-- `apps/web/tests/unit/project-store.test.ts` — new multi-project-action
-  tests.
-- `apps/web/tests/e2e/project-management.spec.ts` — new: editing a blank
-  project saves and lists it, "새 프로젝트" doesn't delete the previous
-  one, opening/deleting via the list actually works, no console errors.
+- `apps/web/src/lib/piano-roll-geometry.ts` — new `dragToBandPatch`
+  (shares beat-snapping/floor logic with `dragToNotePatch`, minus pitch).
+- `apps/web/src/components/PianoRoll.tsx` — generalized the drag session
+  to a `kind: "note" | "chord" | "section"` discriminator; added
+  `onUpdateChord`/`onUpdateSection` props, band rects for chords/sections
+  with their own resize handles (`piano-roll-band-resize-handle`, a
+  distinct class from melody notes' handles), and a converted-duration
+  round-trip for `SongSection`'s `startTime`/`endTime`.
+- `apps/web/src/components/PianoRoll.css` — chord-band styling, shared
+  resize-handle styling, `pointer-events: none` on band labels so they
+  don't intercept drags meant for the band beneath them.
+- `apps/web/src/pages/EditorPage.tsx` — wired `updateChord`/`updateSection`
+  into the new `PianoRoll` props.
+- `apps/web/tests/unit/piano-roll-geometry.test.ts` — 4 new tests for
+  `dragToBandPatch`.
+- `apps/web/tests/e2e/piano-roll-band-drag.spec.ts` — new: dragging/
+  resizing a chord or section band produces the exact expected table
+  values, no console errors, and the pre-existing note-drag tests still
+  pass unmodified (confirming no locator collision).
+- `apps/web/src/pages/LandingPage.tsx` — removed the now-false "코드와
+  구간은 표로만 편집할 수 있습니다" claim.
 
-(Prior major work: syncing recording with playback, A-B loop/count-in,
-microphone recording, guide playback, section-level regeneration,
-piano-roll drag editing, and the initial Phase 2 editor — see earlier
-commits.)
+(Prior major work: multi-project management, syncing recording with
+playback, A-B loop/count-in, microphone recording, guide playback,
+section-level regeneration, piano-roll drag editing, and the initial
+Phase 2 editor — see earlier commits.)
 
 ## Items requiring human evaluation
 

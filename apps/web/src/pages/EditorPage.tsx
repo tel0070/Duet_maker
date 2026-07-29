@@ -26,6 +26,8 @@ export function EditorPage() {
   const addNote = useProjectStore((s) => s.addNote);
   const updateNote = useProjectStore((s) => s.updateNote);
   const removeNote = useProjectStore((s) => s.removeNote);
+  const updateChord = useProjectStore((s) => s.updateChord);
+  const updateSection = useProjectStore((s) => s.updateSection);
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [syncStarting, setSyncStarting] = useState(false);
@@ -104,6 +106,8 @@ export function EditorPage() {
           onSelectNote={setSelectedNoteId}
           onUpdateNote={updateNote}
           onAddNote={addNote}
+          onUpdateChord={updateChord}
+          onUpdateSection={updateSection}
           onDeleteNote={(id) => {
             removeNote(id);
             setSelectedNoteId((current) => (current === id ? null : current));

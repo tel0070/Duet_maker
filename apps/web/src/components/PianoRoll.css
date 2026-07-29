@@ -27,12 +27,24 @@
 .piano-roll-section-label {
   fill: #b9b3dd;
   font-size: 10px;
+  pointer-events: none;
+}
+
+.piano-roll-chord-band {
+  fill: rgba(255, 139, 196, 0.08);
+  stroke: rgba(255, 139, 196, 0.25);
 }
 
 .piano-roll-chord-label {
   fill: #ffb3d9;
   font-size: 10px;
   font-weight: 600;
+  pointer-events: none;
+}
+
+.piano-roll-band--draggable {
+  cursor: grab;
+  touch-action: none;
 }
 
 .piano-roll-note {
@@ -41,7 +53,8 @@
   touch-action: none;
 }
 
-.piano-roll-resize-handle {
+.piano-roll-resize-handle,
+.piano-roll-band-resize-handle {
   fill: transparent;
   cursor: ew-resize;
   touch-action: none;

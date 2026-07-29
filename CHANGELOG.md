@@ -7,6 +7,11 @@ need an entry.
 
 ### Added
 
+- **Chord/section piano-roll dragging.** Chord and section bands on the
+  piano roll can now be dragged to move (start time) and dragged at the
+  right edge to resize (duration), the same interaction already available
+  for melody notes — in addition to the existing table editors, which stay
+  in sync.
 - **Multi-project management.** The editor now has a "최근 프로젝트" panel
   listing every project saved in this browser, with "열기"/"삭제" per
   project. "새 프로젝트" no longer deletes anything — it just starts an
@@ -62,8 +67,6 @@ need an entry.
 
 ### Known limitations
 
-- Chord/section editing is table-based; only melody notes are
-  drag-editable on the piano roll.
 - Section regeneration voice-leads correctly *into* the regenerated
   section but doesn't specially optimize the seam back *out* of it.
 

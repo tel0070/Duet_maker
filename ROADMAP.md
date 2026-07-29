@@ -44,7 +44,9 @@ item's state changes.
 - [x] Bonus, not originally listed: project JSON export/import, sample project loader (3 demo songs), "다른 결과 보기" (reroll with a new seed)
 - [x] Section-level partial regeneration — a "재생성" button per row in the section table calls `regenerateSection` (`packages/harmony-core`), which locks every note outside the target section to its previous exact pitch/relation and only re-runs the beam search for notes inside it. Requires a full generation to exist first (button is disabled until then). One-directional continuity only — see `AGENTS.md` §9 for the documented limitation.
 - [x] Multi-project management — a "최근 프로젝트" panel (`apps/web/src/components/ProjectList.tsx`) lists every project saved in IndexedDB (`apps/web/src/lib/storage.ts`, now keyed by each project's own id instead of a single fixed slot, with a lazy one-time migration of any pre-existing single-slot autosave), with "열기"/"삭제" per row. "새 프로젝트" no longer deletes anything — it just starts an unsaved blank project.
-- [ ] **Not done**: dragging/resizing *chords* or *sections* on the piano roll (only melody notes are drag-editable; chords/sections remain table-only)
+- [x] Dragging/resizing chords and sections on the piano roll — the same drag-to-move/drag-to-resize interaction already built for melody notes, extended to chord bands (pink) and section bands (purple) via a shared `dragToBandPatch` helper (`apps/web/src/lib/piano-roll-geometry.ts`). Chords and sections are still also editable via their tables, in sync with the piano roll.
+
+**Phase 2 checklist is now fully done.**
 
 ## Phase 3 — Guide playback & recording
 
