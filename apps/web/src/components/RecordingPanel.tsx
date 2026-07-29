@@ -1,15 +1,24 @@
-import { useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { downloadBlob } from "../lib/download.js";
 import { createRecordingSession, requestMicrophoneStream, type RecordingHandle } from "../lib/recorder.js";
 import "./RecordingPanel.css";
 
+export interface RecordingPanelHandle {
+  /** Starts recording. Resolves to `true` if recording actually started,
+   * `false` if it failed (e.g. permission denied) — the failure reason is
+   * shown in this panel's own error text either way. */
+  start: () => Promise<boolean>;
+  stop: () => Promise<void>;
+}
+
 /**
- * Standalone microphone recording — not synced to PlaybackPanel's guide
- * audio (the user starts playback and recording as two separate manual
- * actions). See docs/DECISIONS.md for why that coupling wasn't attempted
- * in this pass.
+ * Microphone recording. Exposes `start`/`stop` via `ref` so a parent (see
+ * EditorPage's "재생하며 녹음") can trigger recording together with guide
+ * playback as one combined action, in addition to this panel's own
+ * standalone buttons. See docs/DECISIONS.md for why that combination isn't
+ * sample-accurate audio-graph sync, just a single click starting both.
  */
-export function RecordingPanel() {
+export const RecordingPanel = forwardRef<RecordingPanelHandle>(function RecordingPanel(_props, ref) {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
@@ -17,7 +26,7 @@ export function RecordingPanel() {
   const handleRef = useRef<RecordingHandle | null>(null);
   const blobRef = useRef<Blob | null>(null);
 
-  async function startRecording() {
+  async function startRecording(): Promise<boolean> {
     setError(null);
     try {
       const stream = await requestMicrophoneStream();
@@ -27,8 +36,10 @@ export function RecordingPanel() {
         URL.revokeObjectURL(recordingUrl);
         setRecordingUrl(null);
       }
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "마이크에 접근할 수 없습니다.");
+      return false;
     }
   }
 
@@ -46,6 +57,11 @@ export function RecordingPanel() {
     if (!blobRef.current) return;
     downloadBlob(blobRef.current, "recording.webm");
   }
+
+  useImperativeHandle(ref, () => ({
+    start: startRecording,
+    stop: stopRecording,
+  }));
 
   return (
     <div className="recording-panel">
@@ -70,4 +86,4 @@ export function RecordingPanel() {
       </p>
     </div>
   );
-}
+});

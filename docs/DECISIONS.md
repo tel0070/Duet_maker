@@ -184,12 +184,11 @@ a future test wants to assert "permission denied" behavior specifically,
 it'll need `context.grantPermissions([])`/`clearPermissions()`, not this
 global config.
 
-Recording is intentionally **not synced to playback** in this pass — "녹음
-시작" and "함께 재생" are two separate manual clicks, not one combined
-action. A user can still approximate "sing along with the guide" by
-clicking both close together, just without sample-accurate alignment.
-Combining them is tracked as a follow-up in `AGENTS.md` §8, not silently
-assumed to be equivalent to what a real "재생하며 녹음" feature would do.
+Recording was intentionally **not synced to playback** in this initial
+pass — "녹음 시작" and "함께 재생" were two separate manual clicks, not one
+combined action. A "재생하며 녹음" action combining them was added as a
+follow-up (see the dedicated section below) — not a sample-accurate merge,
+just one click starting both.
 
 ## A-B loop and count-in: region-slicing + a self-rescheduling setTimeout chain, manual beat entry
 
@@ -228,6 +227,39 @@ common metronome convention. Fixed at 4 beats (not configurable) — a
 single on/off toggle was judged enough for the common case; a beat-count
 selector can be added if 4 turns out to be the wrong default for some
 users' workflow.
+
+## "재생하며 녹음": one click starting two independent systems, not merged audio graphs
+
+`PlaybackPanel` and `RecordingPanel` each own their own state (an
+`AudioContext` and a `MediaRecorder` session respectively) and were built,
+tested, and shipped independently. Combining them for "재생하며 녹음" did
+**not** mean merging those into one audio graph (e.g. routing the guide's
+`AudioContext` output into the same stream the `MediaRecorder` captures) —
+that would let a user's recording literally contain the guide track baked
+in, which is a real feature some users might want, but a materially bigger
+change (audio-graph routing, and a decision about whether the baked-in
+guide is even desired in the exported file) than what "sync recording with
+guide playback" was scoped to mean here (see `AGENTS.md` §8's phrasing:
+"a single 재생하며 녹음 action").
+
+Instead, each panel gained a `forwardRef`+`useImperativeHandle` API
+(`PlaybackPanelHandle`, `RecordingPanelHandle`) so `EditorPage.tsx` can
+call `recordingRef.current.start()` then `playbackRef.current.playBoth()`
+in sequence — two independent systems started by one click, each still
+usable on its own via their existing standalone buttons. `start()` returns
+whether the mic access actually succeeded, so the combined action doesn't
+also start playback if the user denied the permission prompt (the
+recording panel's own error text still explains why). If no harmony has
+been generated yet, the combined action falls back to `playMelody()`
+rather than doing nothing — recording yourself singing along to just the
+main melody is still a real, useful case even before a duet arrangement
+exists.
+
+This means the recorded file only ever contains what the microphone
+picked up (the user's voice, and acoustically whatever the room's speakers
+leaked into the mic) — not a clean mix of guide + voice. That tradeoff is
+the actual scope of "sync recording with guide playback" here: a
+convenience button, not a mixer.
 
 ## Section regeneration: lock notes via the existing beam search, not a second algorithm
 

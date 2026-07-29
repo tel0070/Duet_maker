@@ -52,10 +52,10 @@ item's state changes.
 - [x] Synced main+second playback — "함께 재생" schedules both tracks against the same `startAt`, verified they share it (unit test) and sound together (manual + e2e check)
 - [x] Playback speed — 0.5x/0.75x/1x/1.25x selector, scales note timing
 - [x] Per-track volume — independent sliders for main melody and second vocal
-- [x] Microphone recording — `getUserMedia` + `MediaRecorder` (`apps/web/src/lib/recorder.ts`), record/stop/playback/download; verified with Playwright's fake-device flags (`--use-fake-device-for-media-stream`) so it runs in CI without real hardware. Not synced to guide playback — two independent manual actions (see `docs/DECISIONS.md`).
+- [x] Microphone recording — `getUserMedia` + `MediaRecorder` (`apps/web/src/lib/recorder.ts`), record/stop/playback/download; verified with Playwright's fake-device flags (`--use-fake-device-for-media-stream`) so it runs in CI without real hardware.
 - [x] A-B loop — "구간 반복" toggle + start/end beat inputs on the playback panel; loops the selected region indefinitely until stopped (`sliceScheduledToRegion` + a self-rescheduling `setTimeout` chain in `PlaybackPanel.tsx`), verified with a real-timing e2e test that the loop keeps playing well past when a one-shot would have auto-stopped.
 - [x] Count-in — "카운트인 (4비트)" toggle adds 4 metronome clicks (accented downbeat) before playback starts (`scheduleCountIn` in `apps/web/src/lib/audio-engine.ts`), verified with a real-timing e2e test that playback is genuinely delayed and still auto-stops afterward.
-- [ ] **Not done**: recording is still not synced to guide playback (see the item above and `AGENTS.md` §8)
+- [x] Sync recording with guide playback — a "재생하며 녹음" button starts microphone recording and guide playback together (`EditorPage.tsx`, via `ref`-exposed imperative handles on `PlaybackPanel`/`RecordingPanel`); falls back to melody-only playback if no harmony has been generated yet. Not sample-accurate audio-graph sync — a single combined click starting both independent systems, not merged into one recording (see `docs/DECISIONS.md`).
 
 ## Phase 4 — Vocal file analysis
 

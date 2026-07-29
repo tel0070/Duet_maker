@@ -79,3 +79,9 @@
   color: #ff8b8b;
   font-size: 0.85rem;
 }
+
+.editor-hint {
+  color: #8a84ab;
+  font-size: 0.8rem;
+  margin: 4px 0 0;
+}

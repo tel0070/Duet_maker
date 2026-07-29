@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChordTable } from "../components/ChordTable.js";
 import { HarmonyResults } from "../components/HarmonyResults.js";
 import { NoteTable } from "../components/NoteTable.js";
 import { PianoRoll } from "../components/PianoRoll.js";
-import { PlaybackPanel } from "../components/PlaybackPanel.js";
-import { RecordingPanel } from "../components/RecordingPanel.js";
+import { PlaybackPanel, type PlaybackPanelHandle } from "../components/PlaybackPanel.js";
+import { RecordingPanel, type RecordingPanelHandle } from "../components/RecordingPanel.js";
 import { SectionTable } from "../components/SectionTable.js";
 import { StylePicker } from "../components/StylePicker.js";
 import { Toolbar } from "../components/Toolbar.js";
@@ -27,11 +27,39 @@ export function EditorPage() {
   const removeNote = useProjectStore((s) => s.removeNote);
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [syncStarting, setSyncStarting] = useState(false);
+
+  const playbackRef = useRef<PlaybackPanelHandle>(null);
+  const recordingRef = useRef<RecordingPanelHandle>(null);
 
   // Runs once on mount to restore the last autosaved project, if any.
   useEffect(() => {
     void hydrateFromStorage();
   }, [hydrateFromStorage]);
+
+  const hasMelody = project.mainMelody.length > 0;
+  const hasHarmony = Boolean(currentArrangement?.harmonyTrack.some((h) => h.generatedPitch !== null));
+
+  async function playWhileRecording() {
+    setSyncStarting(true);
+    try {
+      const started = await recordingRef.current?.start();
+      if (started) {
+        if (hasHarmony) {
+          playbackRef.current?.playBoth();
+        } else {
+          playbackRef.current?.playMelody();
+        }
+      }
+    } finally {
+      setSyncStarting(false);
+    }
+  }
+
+  async function stopPlaybackAndRecording() {
+    playbackRef.current?.stop();
+    await recordingRef.current?.stop();
+  }
 
   if (!hydrated) {
     return <p className="editor-loading">저장된 프로젝트를 불러오는 중...</p>;
@@ -108,12 +136,33 @@ export function EditorPage() {
 
       <section className="editor-section">
         <h2>가이드 재생</h2>
-        <PlaybackPanel melody={project.mainMelody} harmony={currentArrangement?.harmonyTrack} bpm={project.bpm} />
+        <PlaybackPanel
+          ref={playbackRef}
+          melody={project.mainMelody}
+          harmony={currentArrangement?.harmonyTrack}
+          bpm={project.bpm}
+        />
       </section>
 
       <section className="editor-section">
         <h2>녹음</h2>
-        <RecordingPanel />
+        <RecordingPanel ref={recordingRef} />
+      </section>
+
+      <section className="editor-section">
+        <h2>재생하며 녹음</h2>
+        <p className="editor-hint">
+          위 두 기능을 한 번에 시작하는 편의 버튼입니다. 마이크 녹음을 먼저 시작한 뒤 곧바로 가이드 재생을
+          시작합니다 (표본 단위로 정확히 맞춘 동기화는 아닙니다).
+        </p>
+        <div className="editor-generate-actions">
+          <button type="button" onClick={() => void playWhileRecording()} disabled={!hasMelody || syncStarting}>
+            재생하며 녹음
+          </button>
+          <button type="button" onClick={() => void stopPlaybackAndRecording()}>
+            재생·녹음 정지
+          </button>
+        </div>
       </section>
     </div>
   );

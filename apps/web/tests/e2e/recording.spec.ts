@@ -5,7 +5,7 @@ test("records from the (fake, sandboxed) microphone and produces a playable, dow
   await expect(page.getByRole("heading", { name: "프로젝트 정보" })).toBeVisible();
 
   const startButton = page.getByRole("button", { name: "녹음 시작" });
-  const stopButton = page.getByRole("button", { name: "녹음 정지" });
+  const stopButton = page.getByRole("button", { name: "녹음 정지", exact: true });
   const downloadButton = page.getByRole("button", { name: "녹음 파일 내보내기" });
 
   await expect(stopButton).toBeDisabled();
@@ -35,7 +35,7 @@ test("has no console errors during a record/stop cycle", async ({ page }) => {
 
   await page.getByRole("button", { name: "녹음 시작" }).click();
   await page.waitForTimeout(300);
-  await page.getByRole("button", { name: "녹음 정지" }).click();
+  await page.getByRole("button", { name: "녹음 정지", exact: true }).click();
 
   expect(errors).toEqual([]);
 });

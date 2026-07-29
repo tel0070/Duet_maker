@@ -1,5 +1,5 @@
 import type { HarmonyNote, NoteEvent } from "@duet-maker/shared-types";
-import { useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import {
   beatsToSeconds,
   harmonyToScheduled,
@@ -46,13 +46,25 @@ export interface PlaybackPanelProps {
   bpm: number;
 }
 
+export interface PlaybackPanelHandle {
+  playMelody: () => void;
+  playHarmony: () => void;
+  playBoth: () => void;
+  stop: () => void;
+}
+
 /**
  * Guide-audio playback only — piano/synth/choir-pad/humming oscillator
  * tones, not a natural-voice synthesizer (see AGENTS.md / docs/PRIVACY.md
  * for why: no model, no network, and no claim of realism beyond what a
- * few Web Audio oscillators actually produce).
+ * few Web Audio oscillators actually produce). Exposes its play/stop
+ * actions via `ref` so a parent (see EditorPage's "재생하며 녹음") can
+ * trigger playback together with recording as one combined action.
  */
-export function PlaybackPanel({ melody, harmony, bpm }: PlaybackPanelProps) {
+export const PlaybackPanel = forwardRef<PlaybackPanelHandle, PlaybackPanelProps>(function PlaybackPanel(
+  { melody, harmony, bpm },
+  ref,
+) {
   const [voice, setVoice] = useState<GuideVoice>("piano");
   const [melodyVolume, setMelodyVolume] = useState(0.6);
   const [harmonyVolume, setHarmonyVolume] = useState(0.6);
@@ -160,6 +172,13 @@ export function PlaybackPanel({ melody, harmony, bpm }: PlaybackPanelProps) {
   const hasHarmony = Boolean(harmony && harmony.some((h) => h.generatedPitch !== null));
   const hasMelody = melody.length > 0;
 
+  useImperativeHandle(ref, () => ({
+    playMelody: () => play("melody"),
+    playHarmony: () => play("harmony"),
+    playBoth: () => play("both"),
+    stop: stopAll,
+  }));
+
   return (
     <div className="playback-panel">
       <div className="playback-row">
@@ -263,4 +282,4 @@ export function PlaybackPanel({ melody, harmony, bpm }: PlaybackPanelProps) {
       </p>
     </div>
   );
-}
+});

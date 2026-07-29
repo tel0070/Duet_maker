@@ -36,7 +36,7 @@ output before trusting it, and update it the moment it goes stale.
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
 | `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`). 101 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete) + guide playback & recording (Phase 3, functionally complete except syncing the two). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, IndexedDB autosave, Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download) — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: multi-project management, dragging chords/sections, two-sided continuity for section regeneration, syncing recording with guide playback. |
+| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, IndexedDB autosave, Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: multi-project management, dragging chords/sections, two-sided continuity for section regeneration. |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
 | `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; the Phase 3 playback engine is small enough to live in `apps/web/src/lib/audio-engine.ts` rather than a separate `audio-ui` package — revisit if audio code grows enough to be reused outside `apps/web`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
@@ -149,12 +149,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   waits out real Web Audio scheduling in Chromium, not a mock; plus A-B
   loop — confirms playback keeps going well past when a one-shot would
   have auto-stopped — and count-in — confirms playback is genuinely
-  delayed and still auto-stops afterward), and
-  microphone recording (launched with Chromium's
+  delayed and still auto-stops afterward), microphone recording
+  (launched with Chromium's
   `--use-fake-device-for-media-stream`/`--use-fake-ui-for-media-stream`
   flags — see `playwright.config.ts` — so `getUserMedia`/`MediaRecorder`
   run for real against a synthetic device, no actual microphone needed
-  and nothing depends on OS-level permission prompts).
+  and nothing depends on OS-level permission prompts), and the "재생하며
+  녹음" combined action (`sync-playback-recording.spec.ts`: confirms both
+  systems actually start together and stop together, and that it falls
+  back to melody-only playback when no harmony exists yet).
 - There is no separate "human evaluation" tooling yet (spec calls for a
   1-5 rating form); not built, not claimed as built.
 
@@ -181,21 +184,20 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. **Sync recording with guide playback** (last remaining Phase 3 item) —
-   today "녹음 시작" and "함께 재생" are two independent manual clicks (see
-   `docs/DECISIONS.md`); a single "재생하며 녹음" action that starts both
-   together would be a natural follow-up now that recording, playback, A-B
-   loop, and count-in all exist independently.
-3. Multi-project management (recent projects list, per-project delete) if
+2. Multi-project management (recent projects list, per-project delete) if
    a single autosave slot proves limiting in practice.
-4. Drag/resize support for chords and sections on the piano roll (currently
+3. Drag/resize support for chords and sections on the piano roll (currently
    only melody notes are drag-editable there — chords/sections are
    table-only). Lower priority than the above since the tables already
    cover the same edits.
-5. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
+4. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
    seam into the locked note *after* the regenerated section, not just the
    one before it — if the current one-directional version proves
    noticeable in practice.
+5. Phase 3's checklist is now fully done. Next phase-scale work is Phase 4
+   (vocal file analysis / browser-side pitch extraction) — a materially
+   larger undertaking than anything above; don't start it without
+   re-reading `docs/PRODUCT_SPEC.md`'s Phase 4 section first.
 
 ## 9. Known issues / deliberate simplifications
 
@@ -239,10 +241,16 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   exist now; the loop region is entered manually as start/end beats, not
   picked from a section dropdown — see `docs/DECISIONS.md`.
 - Microphone recording (`apps/web/src/lib/recorder.ts`,
-  `RecordingPanel.tsx`) is standalone — it is **not** synced to
-  `PlaybackPanel`'s guide playback. Starting the guide and starting a
-  recording are two separate manual clicks; there is no single "record
-  while the guide plays" action yet (tracked in §8).
+  `RecordingPanel.tsx`) and guide playback (`PlaybackPanel.tsx`) can now be
+  started together via `EditorPage.tsx`'s "재생하며 녹음" button, which
+  calls each panel's `ref`-exposed imperative handle in sequence (start
+  recording, then start playback). This is **not** sample-accurate
+  audio-graph sync — it is two independent systems (a `MediaRecorder`
+  capturing the mic, and Web Audio oscillators driving the speakers)
+  started by one click, with whatever real-world delay that implies (mic
+  permission grant, if not already granted, happens before playback
+  starts). Each panel's own standalone start/stop buttons still work
+  independently. See `docs/DECISIONS.md`.
 - The editor has no Web Worker — `generateDuetArrangement` runs on the main
   thread. Fine at the note counts in the demo projects (tens of notes,
   sub-100ms); revisit if real user songs are long enough to cause visible

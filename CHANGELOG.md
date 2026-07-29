@@ -7,6 +7,11 @@ need an entry.
 
 ### Added
 
+- **재생하며 녹음 (play while recording).** A single button in the editor
+  now starts the microphone recording and guide playback together (falls
+  back to melody-only playback if no harmony has been generated yet), and
+  a matching button stops both. Not sample-accurate audio-graph sync —
+  two independent systems started by one click.
 - **A-B loop and count-in for guide playback.** The playback panel now has
   a "구간 반복 (A-B 루프)" toggle with start/end beat inputs that repeats
   the selected region indefinitely until stopped, and a "카운트인
@@ -52,7 +57,6 @@ need an entry.
 
 ### Known limitations
 
-- Recording is not synced to guide playback (two separate actions).
 - Chord/section editing is table-based; only melody notes are
   drag-editable on the piano roll.
 - Section regeneration voice-leads correctly *into* the regenerated
