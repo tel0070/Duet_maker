@@ -2,7 +2,7 @@
 
 ## Last updated
 
-2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration + multi-project management + chord/section piano-roll dragging + two-sided regeneration continuity, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
+2026-07-29 (merged the entire project to `main` via PR #1, fixed 3 CI-config bugs found only by running against real GitHub infrastructure, deploy still blocked on one Settings toggle — see "Known failures" below)
 
 ## Current phase
 
@@ -12,6 +12,12 @@ piano-roll dragging. **Phase 3 (guide playback & recording) checklist is
 fully done**, including the "재생하며 녹음" combined action. The one
 remaining known limitation tracked in `AGENTS.md` (two-sided
 section-regeneration continuity) is now also fixed.
+
+**`main` now has the real project** (previously just a placeholder
+README — see "Recent architectural decisions" below). CI runs green on
+GitHub's actual infrastructure as of this commit. The GitHub Pages
+deploy itself is still blocked on one repo Settings toggle a human needs
+to do — see "Known failures / unverified claims".
 
 ## Working features
 
@@ -57,8 +63,9 @@ section-regeneration continuity) is now also fixed.
     yet); a matching "재생·녹음 정지" stops both. Each panel's own
     standalone controls still work independently.
 - CI workflows (PR checks, GitHub Pages deploy, dependency review, weekly
-  health check) — written and validated locally; not yet confirmed on
-  GitHub's own infrastructure (see below).
+  health check) — **now confirmed running on GitHub's real infrastructure**
+  (see "Recent architectural decisions" and "Known failures" below for
+  what that first real run actually found).
 
 ## Partially working features
 
@@ -66,14 +73,21 @@ None — every item originally scoped for Phase 2 and Phase 3 is built.
 
 ## Known failures / unverified claims
 
-- **CI has not been confirmed green on GitHub's infrastructure.** Everything
-  (`pnpm validate`, `pnpm test:e2e`, manual browser walkthroughs) was run
-  and passed *locally*. The workflow YAML has not yet executed on an
-  actual GitHub Actions runner.
-- **GitHub Pages is not confirmed to be serving the site.** This repo is
-  private; needs GitHub Pro/Team/Enterprise or to be made public. See
-  `docs/DEPLOYMENT.md` / `docs/adr/0001-hosting-choice.md` — human
-  decision, unresolved since Phase 0.
+- **GitHub Pages deploy is still blocked — verified, not assumed.** The
+  repo is now public (human action, confirmed via the GitHub API:
+  `curl https://api.github.com/repos/tel0070/Duet_maker` → `"private":
+  false`), and the `Deploy Production` workflow's `build` job now runs
+  green (lint/typecheck/test/build/e2e all pass on a real GitHub Actions
+  runner). The `deploy` job itself fails with `HttpError: Not Found` /
+  `Failed to create deployment (status: 404) ... Ensure GitHub Pages has
+  been enabled: https://github.com/tel0070/Duet_maker/settings/pages`.
+  **This needs one more human action**: open that Settings → Pages page
+  and set Source to "GitHub Actions" (a one-time toggle — see ADR 0001).
+  No code or workflow change can do this; there is no API tool exposed in
+  this session with repo-administration scope to do it either. Once
+  toggled, the next push to `main` (or a manual `workflow_dispatch`
+  re-run of the existing failed run) should deploy successfully — the
+  `build` job already proved the pipeline itself works end-to-end.
 - `delayedEntry`/`repeatPhrase` arrangement instructions are approximated
   via scoring bias + text only (Phase 1 limitation, unchanged).
 - Guide playback timbres are genuinely 4 distinct oscillator-based sounds,
@@ -143,15 +157,46 @@ None — every item originally scoped for Phase 2 and Phase 3 is built.
   specifically so the pre-existing note-drag e2e locators keep resolving
   correctly now that more resize handles exist earlier in the SVG's DOM
   order. See `docs/DECISIONS.md`.
+- **The entire project was merged into `main` via PR #1** — `main` had
+  only ever held a placeholder README until this point; all 11 commits of
+  actual work lived on `claude/duet-maker-initial-setup` and had never
+  been merged. Running CI against real GitHub infrastructure for the
+  first time (rather than only locally) surfaced 3 real bugs no amount of
+  local `pnpm validate`/`pnpm test:e2e` could have caught, because they're
+  specific to environment differences between this sandbox and GitHub's
+  runners:
+  - `pnpm/action-setup@v4`'s explicit `version: 10` input conflicted with
+    `package.json`'s `packageManager: pnpm@10.33.0` field, in **three**
+    separate workflow files (`pull-request-check.yml`,
+    `deploy-production.yml`, `scheduled-health-check.yml` — found by
+    grepping all workflow files for the same pattern after the first two
+    turned up).
+  - `playwright.config.ts` hardcoded a fallback `executablePath` pointing
+    at this sandbox's own pre-installed Chromium (`/opt/pw-browsers/
+    chromium`), which doesn't exist on GitHub's runners — every e2e test
+    failed on the first real CI run. Fixed by making that path strictly
+    opt-in via `PLAYWRIGHT_CHROMIUM_PATH`, never defaulted. See
+    `docs/DECISIONS.md`'s "Failed/abandoned approaches" section and
+    `docs/TROUBLESHOOTING.md`.
+  - The `Dependency Review` workflow requires the repo's "Dependency
+    graph" Settings toggle, which a workflow file can't enable itself —
+    made `continue-on-error: true` so it doesn't block merges until a
+    human flips that switch.
+  Both follow-up fixes went through their own small PRs (#1 → #2), each
+  validated locally before pushing, each confirmed green on GitHub's
+  actual infrastructure before merging — not just assumed to work from
+  the fix "looking right."
 
 ## Next recommended task
 
 Pick one:
 
-1. **Confirm the GitHub Pages deployment decision** with a human — open
-   since Phase 0, still unresolved. This is now the only item left on the
-   original punch list that isn't a bigger phase-scale undertaking, and it
-   needs a human decision, not more code.
+1. **Enable GitHub Pages** at
+   https://github.com/tel0070/Duet_maker/settings/pages (Source: GitHub
+   Actions) — the one remaining human action blocking the first real
+   deploy. Confirmed via an actual failed run that this is the *only*
+   remaining blocker (see "Known failures" above) — the build pipeline
+   itself is proven working end-to-end on real CI.
 2. Phase 2's and Phase 3's checklists, plus two-sided section-regeneration
    continuity, are all now fully done. The next phase-scale work is Phase 4
    (vocal file analysis / browser-side pitch extraction) — read
@@ -180,35 +225,37 @@ the last one to see two-sided continuity in action.
 
 ## Files changed in the latest major work (this session)
 
-Two-sided section-regeneration continuity, added right after chord/section
-piano-roll dragging:
+Getting the project's first real deployment live, after the entire
+project (previously all sitting on `claude/duet-maker-initial-setup`,
+never merged) went into `main` via PR #1:
 
-- `packages/harmony-core/src/scoring.ts` — added
-  `nextHarmonyPitch`/`nextMelodyPitch` to `ScoringContext`; refactored
-  `voiceLeadingScore`'s body into a `directionalVoiceLeadingScore` helper
-  (leap size + parallel-fifths/octaves check) called once per known
-  direction and blended `(backward + forward) / 2` when a forward pitch
-  is known.
-- `packages/harmony-core/src/planner.ts` — converted the main note loop
-  to an indexed `for` loop so it can look at `sortedMelody[noteIndex + 1]`;
-  computes `nextHarmonyPitch` only when that next note has a
-  `fixedChoices` entry (i.e. only during `regenerateSection`, only for
-  the last free note before a locked boundary) — `null` for every note
-  in an ordinary full generation.
-- `packages/harmony-core/src/generate.ts` — updated `regenerateSection`'s
-  docstring from "continuity is one-directional" to describe the
-  two-sided behavior.
-- `packages/harmony-core/tests/scoring.test.ts` — 2 new tests: a
-  candidate that leads smoothly into a known next pitch scores higher
-  than one that leaps away from it; the blended score sits strictly
-  between backward-only and forward-only.
-- `packages/harmony-core/tests/regenerate-section.test.ts` — 1 new test:
-  forces two very different pitches onto the locked note right after a
-  regenerated section and confirms the section's last note measurably
-  shifts toward whichever pitch was actually used each time (verified the
-  effect is real, not coincidental, by checking the actual computed
-  pitches before removing the debug print).
-- `docs/HARMONY_RULES.md` — updated the `voiceLeading` row's description.
+- `.github/workflows/pull-request-check.yml`,
+  `deploy-production.yml`, `scheduled-health-check.yml` — removed
+  `pnpm/action-setup@v4`'s explicit `version: 10` input from all three
+  (conflicted with `package.json`'s `packageManager` field).
+- `.github/workflows/dependency-review.yml` — added
+  `continue-on-error: true`, since the underlying check needs a repo
+  Settings toggle a workflow file can't flip itself.
+- `apps/web/playwright.config.ts` — `executablePath` is now strictly
+  opt-in via `PLAYWRIGHT_CHROMIUM_PATH`, never defaulted to a
+  sandbox-only path.
+- `docs/TROUBLESHOOTING.md`, `docs/DECISIONS.md` — documented the
+  Playwright fix and the env var a sandboxed dev environment now needs to
+  set explicitly.
+- This file — replaced "not yet confirmed on GitHub's infrastructure"
+  with what running there for real actually found (see "Known failures"
+  and "Recent architectural decisions" above).
+
+Each fix was validated locally (`pnpm validate`, and for the Playwright
+fix, `pnpm test:e2e` re-run both with and without the env var to confirm
+both the bug and the fix), pushed through its own small PR, and confirmed
+green on GitHub's actual infrastructure before merging.
+
+(Prior major work: two-sided section-regeneration continuity,
+chord/section piano-roll dragging, multi-project management, syncing
+recording with playback, A-B loop/count-in, microphone recording, guide
+playback, section-level regeneration, piano-roll drag editing, and the
+initial Phase 2 editor — see earlier commits.)
 
 (Prior major work: chord/section piano-roll dragging, multi-project
 management, syncing recording with playback, A-B loop/count-in,
@@ -224,5 +271,8 @@ commits.)
   and un-normalized browser-default recording good enough, or would either
   benefit from more work even though the Phase 3 checklist is complete?
   Judgment call.
-- **Hosting decision** — make the repo public, pay for a plan, or switch
-  to Cloudflare Pages. See `docs/adr/0001-hosting-choice.md`.
+- **Enable GitHub Pages** — the repo is now public (done); one Settings
+  toggle remains at https://github.com/tel0070/Duet_maker/settings/pages
+  (Source → GitHub Actions) before the already-green build pipeline can
+  actually deploy. See "Known failures" above and
+  `docs/adr/0001-hosting-choice.md`.
