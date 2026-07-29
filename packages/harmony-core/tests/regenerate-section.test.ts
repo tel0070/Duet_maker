@@ -1,4 +1,4 @@
-import { DEFAULT_VOCAL_RANGE } from "@duet-maker/shared-types";
+import { DEFAULT_VOCAL_RANGE, type DuetArrangement } from "@duet-maker/shared-types";
 import { describe, expect, it } from "vitest";
 import { generateDuetArrangement } from "../src/generate.js";
 import { regenerateSection } from "../src/generate.js";
@@ -107,6 +107,50 @@ describe("regenerateSection", () => {
       })
       .map((h) => h.generatedPitch);
     expect(chorusPitchesAfterVerseRegen).toEqual(originalChorusPitches);
+  });
+
+  it("pulls the last regenerated note toward whichever pitch is locked in right after the section", () => {
+    // Two-sided continuity: the seam OUT of a regenerated section should
+    // adapt to the locked note just after it, not just the seam in. Force
+    // two very different pitches onto the first (locked) chorus note and
+    // confirm the last (regenerated) verse note lands close to whichever
+    // one was actually in play each time — if the forward seam weren't
+    // considered at all, both runs would produce the same verse-note
+    // pitch regardless of what follows.
+    const input = twoSectionInput();
+    const original = generateDuetArrangement(input);
+    const firstChorusNote = input.mainMelody.find((n) => n.startTime === 8)!;
+    const lastVerseNote = input.mainMelody.find((n) => n.startTime === 6)!;
+
+    function regenerateVerseWithLockedFollowingPitch(lockedPitch: number) {
+      const forced: DuetArrangement = {
+        ...original,
+        harmonyTrack: original.harmonyTrack.map((h) =>
+          h.originalNoteId === firstChorusNote.id ? { ...h, generatedPitch: lockedPitch } : h,
+        ),
+      };
+      const regenerated = regenerateSection({
+        ...input,
+        seed: 5,
+        previousArrangement: forced,
+        sectionId: input.sections[0]!.id, // verse
+      });
+      return regenerated.harmonyTrack.find((h) => h.originalNoteId === lastVerseNote.id)!.generatedPitch;
+    }
+
+    const pitchWithLowTarget = regenerateVerseWithLockedFollowingPitch(55); // G3
+    const pitchWithHighTarget = regenerateVerseWithLockedFollowingPitch(67); // G4, an octave up
+
+    expect(pitchWithLowTarget).not.toBeNull();
+    expect(pitchWithHighTarget).not.toBeNull();
+    // Each run's verse-note choice should sit closer to its own run's
+    // locked target than to the other run's target.
+    const lowRunDistanceToLow = Math.abs(pitchWithLowTarget! - 55);
+    const lowRunDistanceToHigh = Math.abs(pitchWithLowTarget! - 67);
+    const highRunDistanceToHigh = Math.abs(pitchWithHighTarget! - 67);
+    const highRunDistanceToLow = Math.abs(pitchWithHighTarget! - 55);
+    expect(lowRunDistanceToLow).toBeLessThan(lowRunDistanceToHigh);
+    expect(highRunDistanceToHigh).toBeLessThan(highRunDistanceToLow);
   });
 
   it("carries the real previous harmony pitch into the first regenerated note for continuity", () => {

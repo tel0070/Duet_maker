@@ -35,8 +35,8 @@ output before trusting it, and update it the moment it goes stale.
 | Area | Status |
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
-| `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`). 101 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (**Phase 2 checklist fully done**) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete for melody notes *and* drag/resize for chord and section bands on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, multi-project IndexedDB storage with a "최근 프로젝트" list (open/delete), Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: two-sided continuity for section regeneration (see §9); everything else originally scoped for Phase 2/3 is built. |
+| `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`) with **two-sided continuity** (voice-leads into *and* out of the regenerated section). 104 tests passing. Wired into `apps/web`. |
+| `apps/web` | Landing page + a working editor (**Phase 2 checklist fully done**) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete for melody notes *and* drag/resize for chord and section bands on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, multi-project IndexedDB storage with a "최근 프로젝트" list (open/delete), Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). Phase 2 and Phase 3's original checklists are both fully built out. |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
 | `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; the Phase 3 playback engine is small enough to live in `apps/web/src/lib/audio-engine.ts` rather than a separate `audio-ui` package — revisit if audio code grows enough to be reused outside `apps/web`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
@@ -122,11 +122,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
 
 - `packages/shared-types/tests/` — schema validation + project migration.
 - `packages/harmony-core/tests/` — music theory correctness, candidate
-  generation, all 13 scoring components, style differentiation, MIDI byte
+  generation, all 13 scoring components including `voiceLeading`'s
+  two-sided (backward + forward) blend, style differentiation, MIDI byte
   structure (verified with an independent hand-rolled reader, not just
   round-tripping through the same writer), 9 scenario progressions × 4
   styles as an integration matrix, and `regenerateSection`'s "everything
-  outside the target section is byte-identical" guarantee.
+  outside the target section is byte-identical" guarantee plus a test
+  that forces two different pitches onto the locked note right after a
+  regenerated section and confirms the section's last note actually
+  responds to each (proving the forward seam is real, not coincidental).
 - `apps/web/tests/unit/` — multi-project storage (IndexedDB, via
   `fake-indexeddb`: list/load/save/delete by id, last-opened tracking, the
   legacy single-slot migration, and skipping corrupted entries), Zustand
@@ -197,16 +201,14 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
-   seam into the locked note *after* the regenerated section, not just the
-   one before it — if the current one-directional version proves
-   noticeable in practice.
-3. Phase 2's and Phase 3's checklists are now both fully done (multi-project
-   management and chord/section piano-roll dragging closed out the last
-   Phase 2 items). Next phase-scale work is Phase 4 (vocal file analysis /
-   browser-side pitch extraction) — a materially larger undertaking than
-   anything above; don't start it without re-reading
-   `docs/PRODUCT_SPEC.md`'s Phase 4 section first.
+   This is the only item left on the original punch list that isn't a
+   bigger phase-scale undertaking, and it needs a human decision (see
+   `docs/adr/0001-hosting-choice.md`), not more code.
+2. Phase 2's and Phase 3's checklists, plus two-sided section-regeneration
+   continuity, are all now fully done. Next phase-scale work is Phase 4
+   (vocal file analysis / browser-side pitch extraction) — a materially
+   larger undertaking than anything above; don't start it without
+   re-reading `docs/PRODUCT_SPEC.md`'s Phase 4 section first.
 
 ## 9. Known issues / deliberate simplifications
 
@@ -244,13 +246,18 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
 - "화음 생성" always regenerates the *entire* arrangement for the selected
   style (it does replace only that style's entry in `project.arrangements`,
   not duplicate it — see `project-store.test.ts`). Per-section regeneration
-  now exists (`regenerateSection` in `packages/harmony-core`, wired to a
-  "재생성" button per row in `SectionTable.tsx`), but its continuity
-  guarantee is one-directional: the regenerated section's first note voice-
-  leads correctly from the locked note *before* it, but the seam into the
-  locked note *after* it is not specially optimized (that note's pitch was
-  already fixed before the regeneration ran). See
-  `packages/harmony-core/src/generate.ts`'s `regenerateSection` docstring.
+  exists (`regenerateSection` in `packages/harmony-core`, wired to a
+  "재생성" button per row in `SectionTable.tsx`), with **two-sided
+  continuity**: the regenerated section's first note voice-leads from the
+  locked note *before* it (via `prevHarmonyPitch`, as always), and its
+  last note also factors in the locked note *after* it (via
+  `ScoringContext.nextHarmonyPitch`/`nextMelodyPitch`, blended into
+  `voiceLeadingScore`) — so the seam back out gets real consideration
+  too, not just whatever the beam search happened to prefer on other
+  grounds. This is one step of lookahead (only the note *immediately*
+  after a fixed boundary), not a full two-pass reconciliation. See
+  `packages/harmony-core/src/generate.ts`'s `regenerateSection` docstring
+  and `docs/DECISIONS.md`.
 - Guide playback (`apps/web/src/lib/audio-engine.ts`) uses plain Web Audio
   oscillators (triangle/sawtooth/sine waves with an ADSR-ish envelope per
   voice) — genuinely 4 distinct, listenable timbres, but explicitly not a

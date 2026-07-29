@@ -58,7 +58,7 @@ Each candidate gets a score 0-1 (usually) on each of:
 | `chordFit` | Is this pitch an actual chord tone right now? |
 | `scaleFit` | Is this pitch diatonic to the given key? |
 | `consonance` | Interval-class consonance vs. the melody (unison/3rd/6th high, 2nd/tritone/7th low) — a fixed lookup table by pitch-class distance. |
-| `voiceLeading` | Leap size from the *previous harmony note*, plus a penalty (×0.4) for parallel perfect fifths/octaves with the melody (a classical voice-leading fault, detected by comparing motion direction and interval quality between consecutive notes). |
+| `voiceLeading` | Leap size from the *previous harmony note*, plus a penalty (×0.4) for parallel perfect fifths/octaves with the melody (a classical voice-leading fault, detected by comparing motion direction and interval quality between consecutive notes). During `regenerateSection`, also blends in the same check against the *next* note's harmony pitch when that note is locked (i.e. this is the last free note before a fixed boundary) — so the seam back *out* of a regenerated section gets the same consideration as the seam *in*. `null` during an ordinary full generation (the next note hasn't been decided yet), so this is a no-op outside of section regeneration. |
 | `singability` | Leap size again, tuned as a distinct curve from voiceLeading (this one is about "is this an easy vocal line to sing", not "is this technically correct voice leading"). |
 | `range` | Distance from the comfortable vocal band. |
 | `independence` | Rewards contrary/oblique motion against the melody; penalizes parallel motion (a harmony line that never has its own contour isn't very "duet"). |

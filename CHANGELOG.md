@@ -7,6 +7,10 @@ need an entry.
 
 ### Added
 
+- **Two-sided section-regeneration continuity.** Regenerating one section
+  now voice-leads smoothly both into it (from the locked note before) and
+  back out of it (into the locked note after) — previously only the
+  entry into the section was optimized.
 - **Chord/section piano-roll dragging.** Chord and section bands on the
   piano roll can now be dragged to move (start time) and dragged at the
   right edge to resize (duration), the same interaction already available
@@ -43,7 +47,7 @@ need an entry.
   now be dragged to move (time + pitch), dragged at the right edge to
   resize (duration), added by double-clicking empty space, and deleted by
   selecting a note and pressing Delete — in addition to the existing table
-  editor. Chords and sections are still table-only.
+  editor. (Chord/section band dragging came later — see above.)
 - **A working editor.** `apps/web` now has a real editor at `#editor`, not
   just a landing page: load a sample project or import a melody from a
   `.mid` file, edit chords/sections/melody notes via tables, view them on a
@@ -66,8 +70,5 @@ need an entry.
   confirmed live — see `HANDOFF.md`).
 
 ### Known limitations
-
-- Section regeneration voice-leads correctly *into* the regenerated
-  section but doesn't specially optimize the seam back *out* of it.
 
 There is no released/deployed version yet.

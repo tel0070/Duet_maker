@@ -17,6 +17,18 @@ export interface ScoringContext {
   key: Key;
   vocalRange: VocalRange;
   prevHarmonyPitch: number | null;
+  /**
+   * The harmony pitch already locked in for the *next* melody note, when
+   * known — only non-null when that note is a fixed choice from
+   * `regenerateSection` (see `planHarmonyTrack`'s `fixedChoices`). `null`
+   * during an ordinary full generation, where the next note hasn't been
+   * decided yet. Lets `voiceLeadingScore` consider the seam *out* of a
+   * regenerated section, not just the seam *in*.
+   */
+  nextHarmonyPitch: number | null;
+  /** The next melody note's pitch, paired with `nextHarmonyPitch` for the
+   * same parallel-fifths/octaves check the backward direction gets. */
+  nextMelodyPitch: number | null;
   recentRelations: RelationToMelody[];
   recentHarmonyPitches: number[];
   instruction: ArrangementInstruction;
@@ -73,31 +85,53 @@ function isPerfectInterval(semitones: number): boolean {
   return mod === 0 || mod === 7;
 }
 
-function voiceLeadingScore(candidate: HarmonyCandidate, ctx: ScoringContext): number {
-  if (candidate.pitch === null) return 0.6;
-  if (ctx.prevHarmonyPitch === null) return 0.8;
-  const leap = Math.abs(candidate.pitch - ctx.prevHarmonyPitch);
+/**
+ * Scores how well `pitch` connects to a neighboring harmony pitch (leap
+ * size + a parallel-fifths/octaves check), independent of which direction
+ * (backward to the previous note, or forward to a locked next note)
+ * that neighbor is in — `voiceLeadingScore` calls this once per known
+ * direction and blends the results.
+ */
+function directionalVoiceLeadingScore(
+  pitch: number,
+  melodyPitch: number,
+  neighborHarmonyPitch: number | null,
+  neighborMelodyPitch: number | null,
+): number {
+  if (neighborHarmonyPitch === null) return 0.8;
+  const leap = Math.abs(pitch - neighborHarmonyPitch);
   let score = leapToScore(leap, [0.9, 1.0, 0.8, 0.6, 0.35, 0.1]);
 
-  if (ctx.prevMelodyPitch !== null) {
-    const melodyMoved = ctx.melodyPitch !== ctx.prevMelodyPitch;
-    const harmonyMoved = candidate.pitch !== ctx.prevHarmonyPitch;
+  if (neighborMelodyPitch !== null) {
+    const melodyMoved = melodyPitch !== neighborMelodyPitch;
+    const harmonyMoved = pitch !== neighborHarmonyPitch;
     const sameDirection =
       melodyMoved &&
       harmonyMoved &&
-      sign(ctx.melodyPitch - ctx.prevMelodyPitch) === sign(candidate.pitch - ctx.prevHarmonyPitch);
-    const currentInterval = candidate.pitch - ctx.melodyPitch;
-    const prevInterval = ctx.prevHarmonyPitch - ctx.prevMelodyPitch;
+      sign(melodyPitch - neighborMelodyPitch) === sign(pitch - neighborHarmonyPitch);
+    const currentInterval = pitch - melodyPitch;
+    const neighborInterval = neighborHarmonyPitch - neighborMelodyPitch;
     if (
       sameDirection &&
       isPerfectInterval(currentInterval) &&
-      isPerfectInterval(prevInterval)
+      isPerfectInterval(neighborInterval)
     ) {
       // Parallel fifths/octaves — a classical voice-leading fault.
       score *= 0.4;
     }
   }
   return score;
+}
+
+function voiceLeadingScore(candidate: HarmonyCandidate, ctx: ScoringContext): number {
+  if (candidate.pitch === null) return 0.6;
+  const backward = directionalVoiceLeadingScore(candidate.pitch, ctx.melodyPitch, ctx.prevHarmonyPitch, ctx.prevMelodyPitch);
+  if (ctx.nextHarmonyPitch === null) return backward;
+  // A locked note right after this one (regenerateSection) — blend in how
+  // smoothly this candidate leads into it, so the seam *out* of a
+  // regenerated section gets the same consideration as the seam *in*.
+  const forward = directionalVoiceLeadingScore(candidate.pitch, ctx.melodyPitch, ctx.nextHarmonyPitch, ctx.nextMelodyPitch);
+  return (backward + forward) / 2;
 }
 
 function singabilityScore(candidate: HarmonyCandidate, ctx: ScoringContext): number {

@@ -348,16 +348,39 @@ locked notes' `scoreBreakdown`/`styleReason` stay consistent with the
 call every other note gets) without any risk of the two algorithms
 drifting apart over time.
 
-Continuity is deliberately **one-directional**: the first regenerated
+Continuity was originally **one-directional**: the first regenerated
 note sees the real `prevHarmonyPitch` from the locked note before the
 section (beams are still built left-to-right in time order, so this falls
 out for free), but the locked note *after* the section was fixed before
-regeneration ran, so the seam into it isn't specially optimized. Making
-that symmetric would need the beam search to also score against a fixed
-*future* note — a real two-sided constraint-satisfaction change, not a
-small tweak — and wasn't judged worth doing before seeing whether the
-one-directional version is actually noticeable in practice. Tracked as a
-possible follow-up in `AGENTS.md` §8, not silently accepted as "done."
+regeneration ran, so the seam into it wasn't specially optimized.
+
+That was later made **two-sided**, without needing the "real two-sided
+constraint-satisfaction change" originally assumed necessary. The actual
+gap was narrower than it first looked: the beam search already runs
+left-to-right and already knows, for any note, what the very next note
+is (`sortedMelody[noteIndex + 1]`) — it just wasn't checking whether that
+next note happened to be locked. `ScoringContext` gained
+`nextHarmonyPitch`/`nextMelodyPitch` (both `null` unless the immediately
+next note has a `fixedChoices` entry, which is only ever true for the
+last free note before a regeneration boundary), and `voiceLeadingScore`
+was refactored into a `directionalVoiceLeadingScore` helper called once
+per known direction and blended `(backward + forward) / 2`. No second
+scoring pass, no lookahead beyond one step, and — crucially — zero effect
+on `generateDuetArrangement`'s determinism guarantee, since an ordinary
+full generation never populates `fixedChoices` at all, so
+`nextHarmonyPitch` is `null` for every note and the forward term never
+activates.
+
+This is still not a *full* two-pass reconciliation (it only reaches one
+note past the boundary, not e.g. re-weighing the choice for the locked
+note itself), but it directly closes the specific gap this decision
+originally flagged: the seam back out of a regenerated section now gets
+the same voice-leading consideration as the seam in. Verified at two
+levels — `scoring.test.ts` checks the blend mechanism in isolation, and
+`regenerate-section.test.ts` forces two very different pitches onto the
+note right after a regenerated section and confirms the section's last
+note measurably shifts toward whichever pitch was actually in play each
+time (not a coincidence of some other scoring term).
 
 The web UI's regenerate button is disabled until a full generation exists
 for the current style, because `regenerateSection` needs a previous

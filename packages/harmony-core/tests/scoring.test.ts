@@ -29,6 +29,8 @@ function baseCtx(overrides: Partial<ScoringContext> = {}): ScoringContext {
     key,
     vocalRange: DEFAULT_VOCAL_RANGE,
     prevHarmonyPitch: 64,
+    nextHarmonyPitch: null,
+    nextMelodyPitch: null,
     recentRelations: [],
     recentHarmonyPitches: [],
     instruction: NO_INSTRUCTION,
@@ -53,6 +55,46 @@ describe("scoreCandidate — 도약 감점 (leap penalty)", () => {
     );
     expect(step.breakdown.singability).toBeGreaterThan(leap.breakdown.singability);
     expect(step.breakdown.voiceLeading).toBeGreaterThan(leap.breakdown.voiceLeading);
+  });
+});
+
+describe("scoreCandidate — 양방향 보이스 리딩 (forward voice-leading into a locked next note)", () => {
+  it("scores a candidate that leads smoothly into a known next harmony pitch higher than one that leaps away from it", () => {
+    // No prevHarmonyPitch (isolates the forward term), a locked next note
+    // at 67 — 65 is a step away from it, 40 is nearly four octaves away.
+    const smooth = scoreCandidate(
+      { pitch: 65, relation: "custom", chordRole: "third" },
+      baseCtx({ prevHarmonyPitch: null, nextHarmonyPitch: 67, nextMelodyPitch: 69 }),
+      weights,
+    );
+    const rough = scoreCandidate(
+      { pitch: 40, relation: "custom", chordRole: "third" },
+      baseCtx({ prevHarmonyPitch: null, nextHarmonyPitch: 67, nextMelodyPitch: 69 }),
+      weights,
+    );
+    expect(smooth.breakdown.voiceLeading).toBeGreaterThan(rough.breakdown.voiceLeading);
+  });
+
+  it("blends backward and forward leap scores rather than only considering one direction", () => {
+    // Smooth backward (64 -> 65), rough forward (65 -> 100): the blended
+    // score should sit strictly between "smooth only" and "rough only".
+    const backwardOnly = scoreCandidate(
+      { pitch: 65, relation: "custom", chordRole: "third" },
+      baseCtx({ prevHarmonyPitch: 64, nextHarmonyPitch: null }),
+      weights,
+    );
+    const forwardOnly = scoreCandidate(
+      { pitch: 65, relation: "custom", chordRole: "third" },
+      baseCtx({ prevHarmonyPitch: null, nextHarmonyPitch: 100, nextMelodyPitch: null }),
+      weights,
+    );
+    const both = scoreCandidate(
+      { pitch: 65, relation: "custom", chordRole: "third" },
+      baseCtx({ prevHarmonyPitch: 64, nextHarmonyPitch: 100, nextMelodyPitch: null }),
+      weights,
+    );
+    expect(both.breakdown.voiceLeading).toBeLessThan(backwardOnly.breakdown.voiceLeading);
+    expect(both.breakdown.voiceLeading).toBeGreaterThan(forwardOnly.breakdown.voiceLeading);
   });
 });
 

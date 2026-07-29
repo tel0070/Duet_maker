@@ -154,7 +154,8 @@ export function planHarmonyTrack(params: PlanHarmonyTrackParams): PlanHarmonyTra
   ];
 
   let prevNote: NoteEvent | null = null;
-  for (const note of sortedMelody) {
+  for (let noteIndex = 0; noteIndex < sortedMelody.length; noteIndex += 1) {
+    const note = sortedMelody[noteIndex]!;
     const chord = findActiveChord(chords, note.startTime);
     if (!chord) {
       warnings.add(
@@ -178,6 +179,15 @@ export function planHarmonyTrack(params: PlanHarmonyTrackParams): PlanHarmonyTra
     };
 
     const fixedCandidate = fixedChoices?.get(note.id);
+
+    // Only non-null when regenerateSection locked the very next note —
+    // an ordinary full generation never has fixedChoices, so this stays
+    // null for every note and the forward voice-leading term below is a
+    // no-op, preserving generateDuetArrangement's determinism guarantee.
+    const nextNote = sortedMelody[noteIndex + 1] ?? null;
+    const nextFixedCandidate = nextNote ? fixedChoices?.get(nextNote.id) : undefined;
+    const nextHarmonyPitch = nextFixedCandidate ? nextFixedCandidate.pitch : null;
+    const nextMelodyPitch = nextNote?.pitch ?? null;
 
     // A locked note's outcome doesn't depend on the density roll, and
     // skipping the rng() call for it keeps "how much randomness the free
@@ -213,6 +223,8 @@ export function planHarmonyTrack(params: PlanHarmonyTrackParams): PlanHarmonyTra
           key,
           vocalRange,
           prevHarmonyPitch: beam.lastHarmonyPitch,
+          nextHarmonyPitch,
+          nextMelodyPitch,
           recentRelations: beam.recentRelations,
           recentHarmonyPitches: beam.recentHarmonyPitches,
           instruction,

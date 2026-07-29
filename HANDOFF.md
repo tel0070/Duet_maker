@@ -2,14 +2,16 @@
 
 ## Last updated
 
-2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration + multi-project management + chord/section piano-roll dragging, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
+2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration + multi-project management + chord/section piano-roll dragging + two-sided regeneration continuity, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
 
 ## Current phase
 
 Phase 0 and Phase 1 are done. **Phase 2 (web editor) checklist is now
 fully done**, including multi-project management and chord/section
 piano-roll dragging. **Phase 3 (guide playback & recording) checklist is
-fully done**, including the "재생하며 녹음" combined action.
+fully done**, including the "재생하며 녹음" combined action. The one
+remaining known limitation tracked in `AGENTS.md` (two-sided
+section-regeneration continuity) is now also fixed.
 
 ## Working features
 
@@ -19,7 +21,8 @@ fully done**, including the "재생하며 녹음" combined action.
   evaluator, beam-search planner, 4 structurally distinct styles, seeded
   reproducible generation, MIDI **export**/**import**, and
   **`regenerateSection`** (locks everything outside one section to its
-  previous exact choice). 101 tests.
+  previous exact choice, with two-sided continuity — voice-leads into
+  *and* out of the regenerated section). 104 tests.
 - `apps/web`: landing page (`#`) + editor (`#editor`). The editor:
   - Loads a sample project, starts blank, or imports a melody from a
     `.mid` file.
@@ -59,10 +62,7 @@ fully done**, including the "재생하며 녹음" combined action.
 
 ## Partially working features
 
-- **Section regeneration's continuity is one-directional** (voice-leads
-  in from the note before the section, doesn't specially optimize the
-  seam back out). This is the only remaining item across Phase 2 and
-  Phase 3's original checklists.
+None — every item originally scoped for Phase 2 and Phase 3 is built.
 
 ## Known failures / unverified claims
 
@@ -92,7 +92,13 @@ fully done**, including the "재생하며 녹음" combined action.
 - **MIDI import lives in `packages/harmony-core`**, symmetric to export.
 - **Section regeneration reuses the existing beam search** via an
   optional `fixedChoices` map in `planHarmonyTrack` — see
-  `docs/DECISIONS.md` for the one-directional-continuity tradeoff.
+  `docs/DECISIONS.md`. Continuity is now two-sided: `ScoringContext`
+  gained `nextHarmonyPitch`/`nextMelodyPitch` (only non-null when the
+  immediately next note is locked), and `voiceLeadingScore` blends a
+  backward and forward leap check via a shared
+  `directionalVoiceLeadingScore` helper. Zero effect on
+  `generateDuetArrangement`'s determinism, since an ordinary full
+  generation never populates `fixedChoices`.
 - **Piano-roll drag math is a pure module** separate from pointer-event
   wiring, specifically so it's unit-testable without a real layout engine.
 - **Guide playback and recording both follow the same "pure logic +
@@ -143,13 +149,14 @@ fully done**, including the "재생하며 녹음" combined action.
 Pick one:
 
 1. **Confirm the GitHub Pages deployment decision** with a human — open
-   since Phase 0, still unresolved.
-2. Two-sided section-regeneration continuity — see `AGENTS.md` §9. This is
-   the only item left across Phase 2 and Phase 3's original checklists.
-3. Phase 2's and Phase 3's checklists are now both fully done; the next
-   phase-scale work is Phase 4 (vocal file analysis / browser-side pitch
-   extraction) — read `docs/PRODUCT_SPEC.md`'s Phase 4 section before
-   starting, it is a materially bigger undertaking than anything above.
+   since Phase 0, still unresolved. This is now the only item left on the
+   original punch list that isn't a bigger phase-scale undertaking, and it
+   needs a human decision, not more code.
+2. Phase 2's and Phase 3's checklists, plus two-sided section-regeneration
+   continuity, are all now fully done. The next phase-scale work is Phase 4
+   (vocal file analysis / browser-side pitch extraction) — read
+   `docs/PRODUCT_SPEC.md`'s Phase 4 section before starting, it is a
+   materially bigger undertaking than anything above.
 
 ## Commands to reproduce current state
 
@@ -159,48 +166,55 @@ pnpm validate    # lint + typecheck + test + build, all packages
 pnpm test:e2e    # Playwright — drag/resize (notes + chord/section bands), section regen, playback, recording, sync, project management
 ```
 
-Expected: all green. As of this handoff: 204 unit tests (20 shared-types +
-101 harmony-core + 83 web) and 33 Playwright e2e tests, all passing; lint
+Expected: all green. As of this handoff: 207 unit tests (20 shared-types +
+104 harmony-core + 83 web) and 33 Playwright e2e tests, all passing; lint
 and typecheck clean; build succeeds.
 
 To see it running locally: `pnpm dev`, click "편곡 시작하기 (Beta)", pick a
 sample, "화음 생성", try "가이드 재생" → "함께 재생" (try the "구간 반복"
 and "카운트인" toggles too), "녹음" → "녹음 시작", "재생하며 녹음" to try
 both together (grant the microphone permission prompt), add a note or
-rename the project to see it appear under "최근 프로젝트", and drag a
-chord or section band on the piano roll.
+rename the project to see it appear under "최근 프로젝트", drag a chord or
+section band on the piano roll, and try "재생성" on a section that isn't
+the last one to see two-sided continuity in action.
 
 ## Files changed in the latest major work (this session)
 
-Chord/section piano-roll dragging, added right after multi-project
-management:
+Two-sided section-regeneration continuity, added right after chord/section
+piano-roll dragging:
 
-- `apps/web/src/lib/piano-roll-geometry.ts` — new `dragToBandPatch`
-  (shares beat-snapping/floor logic with `dragToNotePatch`, minus pitch).
-- `apps/web/src/components/PianoRoll.tsx` — generalized the drag session
-  to a `kind: "note" | "chord" | "section"` discriminator; added
-  `onUpdateChord`/`onUpdateSection` props, band rects for chords/sections
-  with their own resize handles (`piano-roll-band-resize-handle`, a
-  distinct class from melody notes' handles), and a converted-duration
-  round-trip for `SongSection`'s `startTime`/`endTime`.
-- `apps/web/src/components/PianoRoll.css` — chord-band styling, shared
-  resize-handle styling, `pointer-events: none` on band labels so they
-  don't intercept drags meant for the band beneath them.
-- `apps/web/src/pages/EditorPage.tsx` — wired `updateChord`/`updateSection`
-  into the new `PianoRoll` props.
-- `apps/web/tests/unit/piano-roll-geometry.test.ts` — 4 new tests for
-  `dragToBandPatch`.
-- `apps/web/tests/e2e/piano-roll-band-drag.spec.ts` — new: dragging/
-  resizing a chord or section band produces the exact expected table
-  values, no console errors, and the pre-existing note-drag tests still
-  pass unmodified (confirming no locator collision).
-- `apps/web/src/pages/LandingPage.tsx` — removed the now-false "코드와
-  구간은 표로만 편집할 수 있습니다" claim.
+- `packages/harmony-core/src/scoring.ts` — added
+  `nextHarmonyPitch`/`nextMelodyPitch` to `ScoringContext`; refactored
+  `voiceLeadingScore`'s body into a `directionalVoiceLeadingScore` helper
+  (leap size + parallel-fifths/octaves check) called once per known
+  direction and blended `(backward + forward) / 2` when a forward pitch
+  is known.
+- `packages/harmony-core/src/planner.ts` — converted the main note loop
+  to an indexed `for` loop so it can look at `sortedMelody[noteIndex + 1]`;
+  computes `nextHarmonyPitch` only when that next note has a
+  `fixedChoices` entry (i.e. only during `regenerateSection`, only for
+  the last free note before a locked boundary) — `null` for every note
+  in an ordinary full generation.
+- `packages/harmony-core/src/generate.ts` — updated `regenerateSection`'s
+  docstring from "continuity is one-directional" to describe the
+  two-sided behavior.
+- `packages/harmony-core/tests/scoring.test.ts` — 2 new tests: a
+  candidate that leads smoothly into a known next pitch scores higher
+  than one that leaps away from it; the blended score sits strictly
+  between backward-only and forward-only.
+- `packages/harmony-core/tests/regenerate-section.test.ts` — 1 new test:
+  forces two very different pitches onto the locked note right after a
+  regenerated section and confirms the section's last note measurably
+  shifts toward whichever pitch was actually used each time (verified the
+  effect is real, not coincidental, by checking the actual computed
+  pitches before removing the debug print).
+- `docs/HARMONY_RULES.md` — updated the `voiceLeading` row's description.
 
-(Prior major work: multi-project management, syncing recording with
-playback, A-B loop/count-in, microphone recording, guide playback,
-section-level regeneration, piano-roll drag editing, and the initial
-Phase 2 editor — see earlier commits.)
+(Prior major work: chord/section piano-roll dragging, multi-project
+management, syncing recording with playback, A-B loop/count-in,
+microphone recording, guide playback, section-level regeneration,
+piano-roll drag editing, and the initial Phase 2 editor — see earlier
+commits.)
 
 ## Items requiring human evaluation
 

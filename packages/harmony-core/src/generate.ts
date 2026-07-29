@@ -63,14 +63,15 @@ export interface RegenerateSectionInput extends HarmonyGenerationInput {
  * context (so they stay accurate if chords changed since the last full
  * generation), but its pitch is never reconsidered.
  *
- * Continuity is one-directional: the first regenerated note sees the real
+ * Continuity is two-sided: the first regenerated note sees the real
  * `prevHarmonyPitch` from the (locked) note just before the section, so
- * the entry into the section still voice-leads naturally. The transition
- * *out* of the section into the (locked) note just after it is not
- * specially optimized — that note's pitch was already fixed before this
- * function ran, so the seam may not be the algorithm's own best choice.
- * True two-sided reconciliation would need a bigger change to the beam
- * search; not implemented (see docs/DECISIONS.md).
+ * the entry into the section voice-leads naturally, and the last
+ * regenerated note also sees the (locked) `nextHarmonyPitch` just after
+ * the section via `ScoringContext.nextHarmonyPitch`, so the seam *out*
+ * factors into its own scoring too — not just a coincidence of whichever
+ * candidate happened to win on other grounds. This is one step of
+ * lookahead (only the note *immediately* after a fixed boundary), not a
+ * full two-pass reconciliation; see docs/DECISIONS.md.
  *
  * Throws if `sectionId` doesn't match any section in `input.sections`.
  */
