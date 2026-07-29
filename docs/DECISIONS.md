@@ -117,6 +117,35 @@ A click vs. drag is disambiguated by total pointer movement
 (`DRAG_THRESHOLD_PX = 3`): under that, releasing selects the note instead
 of committing a (likely accidental) move.
 
+## Section regeneration: lock notes via the existing beam search, not a second algorithm
+
+`regenerateSection` doesn't implement a separate "partial" search
+algorithm. Instead, `planHarmonyTrack` gained an optional `fixedChoices:
+Map<noteId, HarmonyCandidate>` — for a note in that map, the candidate
+pool collapses to exactly one item (its previous choice), so the beam
+search still runs unchanged, it just has nothing to decide at that note.
+This was chosen over writing a second planner because it guarantees the
+locked notes' `scoreBreakdown`/`styleReason` stay consistent with the
+*current* chord/section context (recomputed by the same `scoreCandidate`
+call every other note gets) without any risk of the two algorithms
+drifting apart over time.
+
+Continuity is deliberately **one-directional**: the first regenerated
+note sees the real `prevHarmonyPitch` from the locked note before the
+section (beams are still built left-to-right in time order, so this falls
+out for free), but the locked note *after* the section was fixed before
+regeneration ran, so the seam into it isn't specially optimized. Making
+that symmetric would need the beam search to also score against a fixed
+*future* note — a real two-sided constraint-satisfaction change, not a
+small tweak — and wasn't judged worth doing before seeing whether the
+one-directional version is actually noticeable in practice. Tracked as a
+possible follow-up in `AGENTS.md` §8, not silently accepted as "done."
+
+The web UI's regenerate button is disabled until a full generation exists
+for the current style, because `regenerateSection` needs a previous
+arrangement to lock everything else *to* — there's no "regenerate from
+nothing" partial mode.
+
 ## MIDI import lives in `packages/harmony-core`, not `apps/web`
 
 Symmetric to `midi-export.ts`. Keeps all Standard-MIDI-File byte-format

@@ -8,7 +8,7 @@ import {
   type SongSection,
   type VocalRange,
 } from "@duet-maker/shared-types";
-import { generateDuetArrangement, importMelodyFromMidi } from "@duet-maker/harmony-core";
+import { generateDuetArrangement, importMelodyFromMidi, regenerateSection } from "@duet-maker/harmony-core";
 import { create } from "zustand";
 import { clearCurrentProject, loadCurrentProject, saveCurrentProject } from "../lib/storage.js";
 
@@ -63,6 +63,7 @@ export interface ProjectState {
   importMelodyFile: (file: File) => Promise<void>;
   generate: () => void;
   reroll: () => void;
+  regenerateSection: (sectionId: string) => void;
   currentArrangement: () => DuetArrangement | null;
 
   loadSampleProject: (project: ProjectFile) => void;
@@ -225,6 +226,34 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   reroll: () => {
     set({ seed: get().seed + 1 });
     get().generate();
+  },
+  regenerateSection: (sectionId) => {
+    const { project, selectedStyle, seed } = get();
+    const previousArrangement = project.arrangements.find((a) => a.style === selectedStyle);
+    if (!previousArrangement) {
+      set({ generationError: "먼저 전체 화음을 생성한 뒤 구간별로 다시 생성할 수 있습니다." });
+      return;
+    }
+    try {
+      const arrangement = regenerateSection({
+        mainMelody: project.mainMelody,
+        chords: project.chords,
+        key: project.key,
+        bpm: project.bpm,
+        sections: project.sections,
+        vocalRange: project.vocalRange,
+        style: selectedStyle,
+        seed,
+        previousArrangement,
+        sectionId,
+      });
+      const withoutSameStyle = project.arrangements.filter((a) => a.style !== selectedStyle);
+      const updated = touch({ ...project, arrangements: [...withoutSameStyle, arrangement] });
+      set({ project: updated, generationError: null });
+      queueAutosave(updated);
+    } catch (error) {
+      set({ generationError: error instanceof Error ? error.message : "구간 재생성에 실패했습니다." });
+    }
   },
   currentArrangement: () => {
     const { project, selectedStyle } = get();

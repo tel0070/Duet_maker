@@ -92,4 +92,37 @@ describe("useProjectStore", () => {
     await useProjectStore.getState().importMelodyFile(file);
     expect(useProjectStore.getState().importError).toBeTruthy();
   });
+
+  it("refuses to regenerate a section before any full generation has happened", () => {
+    const sectionId = useProjectStore.getState().project.sections[0]!.id;
+    useProjectStore.getState().regenerateSection(sectionId);
+    expect(useProjectStore.getState().generationError).toMatch(/먼저 전체 화음을/);
+  });
+
+  it("regenerates only the target section, leaving the other section's pitches untouched", () => {
+    const store = useProjectStore.getState();
+    // Replace the default single section with two, so there's something
+    // to keep separate.
+    store.removeSection(store.project.sections[0]!.id);
+    store.addSection({ type: "verse", startTime: 0, endTime: 4, energy: 0.4, harmonyDensity: 0.8 });
+    store.addSection({ type: "chorus", startTime: 4, endTime: 8, energy: 0.8, harmonyDensity: 0.8 });
+    store.addNote({ pitch: 64, startTime: 0, duration: 2, velocity: 90 });
+    store.addNote({ pitch: 67, startTime: 2, duration: 2, velocity: 90 });
+    store.addNote({ pitch: 69, startTime: 4, duration: 2, velocity: 90 });
+    store.addNote({ pitch: 72, startTime: 6, duration: 2, velocity: 90 });
+    store.addChord({ root: "C", quality: "maj", extensions: [], startTime: 0, duration: 4 });
+    store.addChord({ root: "G", quality: "maj", extensions: [], startTime: 4, duration: 4 });
+
+    store.generate();
+    const before = useProjectStore.getState().currentArrangement()!;
+    const chorusSectionId = useProjectStore.getState().project.sections.find((s) => s.type === "chorus")!.id;
+
+    useProjectStore.getState().regenerateSection(chorusSectionId);
+    const after = useProjectStore.getState().currentArrangement()!;
+
+    const versePitchesBefore = before.harmonyTrack.slice(0, 2).map((h) => h.generatedPitch);
+    const versePitchesAfter = after.harmonyTrack.slice(0, 2).map((h) => h.generatedPitch);
+    expect(versePitchesAfter).toEqual(versePitchesBefore);
+    expect(useProjectStore.getState().generationError).toBeNull();
+  });
 });

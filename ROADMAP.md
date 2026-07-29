@@ -42,7 +42,7 @@ item's state changes.
 - [x] MIDI export from the UI (downloads a real, byte-verified .mid)
 - [x] IndexedDB project save/restore across refresh (single autosave slot, debounced; verified manually in a real browser — see `HANDOFF.md`)
 - [x] Bonus, not originally listed: project JSON export/import, sample project loader (3 demo songs), "다른 결과 보기" (reroll with a new seed)
-- [ ] **Not done**: section-level partial regeneration (regenerating one section while keeping the rest fixed) — current "생성" always regenerates the whole arrangement for the selected style; a true partial re-optimization needs planner changes not yet made (see `AGENTS.md` §9)
+- [x] Section-level partial regeneration — a "재생성" button per row in the section table calls `regenerateSection` (`packages/harmony-core`), which locks every note outside the target section to its previous exact pitch/relation and only re-runs the beam search for notes inside it. Requires a full generation to exist first (button is disabled until then). One-directional continuity only — see `AGENTS.md` §9 for the documented limitation.
 - [ ] **Not done**: multi-project management (recent projects list, per-project delete) — only a single autosave slot exists
 - [ ] **Not done**: dragging/resizing *chords* or *sections* on the piano roll (only melody notes are drag-editable; chords/sections remain table-only)
 

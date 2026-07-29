@@ -35,8 +35,8 @@ output before trusting it, and update it the moment it goes stale.
 | Area | Status |
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
-| `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import. 95 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate action, harmony results table, MIDI/JSON export, IndexedDB autosave — all real, all covered by Playwright e2e tests and manually verified in a real browser (see `HANDOFF.md`). **Not done**: per-section partial regeneration, multi-project management, dragging chords/sections (only melody notes are drag-editable). |
+| `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`). 101 tests passing. Wired into `apps/web`. |
+| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, IndexedDB autosave — all real, all covered by Playwright e2e tests and manually verified in a real browser (see `HANDOFF.md`). **Not done**: multi-project management, dragging chords/sections (only melody notes are drag-editable), two-sided continuity for section regeneration. |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
 | `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; no audio playback code exists yet to justify `audio-ui`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
@@ -124,18 +124,21 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
 - `packages/harmony-core/tests/` — music theory correctness, candidate
   generation, all 13 scoring components, style differentiation, MIDI byte
   structure (verified with an independent hand-rolled reader, not just
-  round-tripping through the same writer), and 9 scenario progressions × 4
-  styles as an integration matrix.
+  round-tripping through the same writer), 9 scenario progressions × 4
+  styles as an integration matrix, and `regenerateSection`'s "everything
+  outside the target section is byte-identical" guarantee.
 - `apps/web/tests/unit/` — storage (IndexedDB, via `fake-indexeddb`),
-  Zustand store behavior, landing page, hash routing, piano-roll coordinate
+  Zustand store behavior (including the section-regenerate action's
+  guard/error path), landing page, hash routing, piano-roll coordinate
   math (pure functions), and an integration-style editor test that adds a
   note/chord through the actual table UI and generates a real arrangement.
 - `apps/web/tests/e2e/` — Playwright specs covering the landing page, a
   real end-to-end editor flow (load sample → generate → verify the result
   table, switch style → verify the result actually changed, no console
-  errors during use), and piano-roll drag/resize/add/delete (these can
-  only really be verified with a real layout engine — jsdom doesn't lay
-  out SVG, so the pointer-event wiring itself isn't covered by unit tests).
+  errors during use), piano-roll drag/resize/add/delete (these can only
+  really be verified with a real layout engine — jsdom doesn't lay out
+  SVG, so the pointer-event wiring itself isn't covered by unit tests),
+  and the section-regenerate button's enabled/disabled state and wiring.
 - There is no separate "human evaluation" tooling yet (spec calls for a
   1-5 rating form); not built, not claimed as built.
 
@@ -162,20 +165,18 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. **Section-level partial regeneration.** Today "화음 생성" always
-   regenerates the whole arrangement. A "regenerate just this section"
-   command needs `planHarmonyTrack` (or a new function) to accept a fixed
-   prefix/suffix and only re-run the beam search over the notes inside the
-   target section, seeded from the boundary notes' actual chosen pitches —
-   not a small change, plan it before starting.
-3. Phase 3 (guide audio playback + recording) — now unblocked, since
+2. Phase 3 (guide audio playback + recording) — now unblocked, since
    Phase 2's editor exists and there's something to play against.
-4. Multi-project management (recent projects list, per-project delete) if
+3. Multi-project management (recent projects list, per-project delete) if
    a single autosave slot proves limiting in practice.
-5. Drag/resize support for chords and sections on the piano roll (currently
+4. Drag/resize support for chords and sections on the piano roll (currently
    only melody notes are drag-editable there — chords/sections are
    table-only). Lower priority than the above since the tables already
    cover the same edits.
+5. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
+   seam into the locked note *after* the regenerated section, not just the
+   one before it — if the current one-directional version proves
+   noticeable in practice.
 
 ## 9. Known issues / deliberate simplifications
 
@@ -202,8 +203,14 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   `apps/web/tests/e2e/piano-roll-drag.spec.ts`).
 - "화음 생성" always regenerates the *entire* arrangement for the selected
   style (it does replace only that style's entry in `project.arrangements`,
-  not duplicate it — see `project-store.test.ts`). There is no per-section
-  regenerate yet.
+  not duplicate it — see `project-store.test.ts`). Per-section regeneration
+  now exists (`regenerateSection` in `packages/harmony-core`, wired to a
+  "재생성" button per row in `SectionTable.tsx`), but its continuity
+  guarantee is one-directional: the regenerated section's first note voice-
+  leads correctly from the locked note *before* it, but the seam into the
+  locked note *after* it is not specially optimized (that note's pitch was
+  already fixed before the regeneration ran). See
+  `packages/harmony-core/src/generate.ts`'s `regenerateSection` docstring.
 - The editor has no Web Worker — `generateDuetArrangement` runs on the main
   thread. Fine at the note counts in the demo projects (tens of notes,
   sub-100ms); revisit if real user songs are long enough to cause visible

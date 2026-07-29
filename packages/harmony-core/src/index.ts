@@ -1,4 +1,9 @@
-export { generateDuetArrangement, HARMONY_CORE_VERSION } from "./generate.js";
+export {
+  generateDuetArrangement,
+  regenerateSection,
+  HARMONY_CORE_VERSION,
+  type RegenerateSectionInput,
+} from "./generate.js";
 export { exportArrangementToMidi, TICKS_PER_BEAT } from "./midi-export.js";
 export { importMelodyFromMidi } from "./midi-import.js";
 export { STYLE_PROFILES, planSections } from "./styles.js";

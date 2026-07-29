@@ -7,6 +7,10 @@ need an entry.
 
 ### Added
 
+- **Section-level regeneration.** Each row in the editor's section table
+  now has a "재생성" button that regenerates only that section's harmony,
+  keeping every other section's notes exactly as they were. Disabled until
+  a full generation exists for the current style.
 - **Piano-roll drag editing.** Melody notes on the editor's piano roll can
   now be dragged to move (time + pitch), dragged at the right edge to
   resize (duration), added by double-clicking empty space, and deleted by
@@ -37,8 +41,8 @@ need an entry.
 
 - Chord/section editing is table-based; only melody notes are
   drag-editable on the piano roll.
-- Regeneration always covers the whole song; there's no per-section
-  regenerate yet.
+- Section regeneration voice-leads correctly *into* the regenerated
+  section but doesn't specially optimize the seam back *out* of it.
 - Only one autosave slot exists (no multi-project list).
 
 There is no released/deployed version yet.

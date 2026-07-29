@@ -58,6 +58,13 @@ const SECTION_LABELS_KO: Record<SectionType, string> = {
   custom: "구간",
 };
 
+function effectiveDensity(style: StyleProfile, section: SongSection, note: NoteEvent): number {
+  const densityMultiplier = style.sectionDensityMultiplier[section.type] ?? 1;
+  const baseDensity = Math.min(1, Math.max(0, section.harmonyDensity * densityMultiplier));
+  const onBeatBonus = Number.isInteger(note.startTime) ? 0.15 : 0;
+  return Math.min(1, baseDensity + onBeatBonus);
+}
+
 function explainCandidate(candidate: HarmonyCandidate, sectionType: SectionType): string {
   const section = SECTION_LABELS_KO[sectionType];
   switch (candidate.relation) {
@@ -117,6 +124,17 @@ export interface PlanHarmonyTrackParams {
   instructionsBySectionId: Map<string, ArrangementInstruction>;
   style: StyleProfile;
   rng: Rng;
+  /**
+   * Notes whose harmony choice is locked to a specific candidate rather
+   * than searched — used by `regenerateSection` to keep everything outside
+   * the target section byte-identical while only the target section is
+   * re-decided. A locked note still runs through `scoreCandidate` (so its
+   * `scoreBreakdown`/`styleReason` reflect the *current* chord/section
+   * context) and still feeds `lastHarmonyPitch`/`recentRelations` forward
+   * for continuity, but the beam search has only one candidate to choose
+   * for it, so it never branches there.
+   */
+  fixedChoices?: Map<string, HarmonyCandidate>;
 }
 
 export interface PlanHarmonyTrackResult {
@@ -127,7 +145,7 @@ export interface PlanHarmonyTrackResult {
 }
 
 export function planHarmonyTrack(params: PlanHarmonyTrackParams): PlanHarmonyTrackResult {
-  const { melody, chords, sections, key, vocalRange, instructionsBySectionId, style, rng } = params;
+  const { melody, chords, sections, key, vocalRange, instructionsBySectionId, style, rng, fixedChoices } = params;
   const sortedMelody = [...melody].sort((a, b) => a.startTime - b.startTime);
   const warnings = new Set<string>();
 
@@ -159,11 +177,14 @@ export function planHarmonyTrack(params: PlanHarmonyTrackParams): PlanHarmonyTra
       sustainedPad: false,
     };
 
-    const densityMultiplier = style.sectionDensityMultiplier[section.type] ?? 1;
-    const baseDensity = Math.min(1, Math.max(0, section.harmonyDensity * densityMultiplier));
-    const onBeatBonus = Number.isInteger(note.startTime) ? 0.15 : 0;
-    const effectiveDensity = Math.min(1, baseDensity + onBeatBonus);
-    const shouldHarmonize = rng() < effectiveDensity;
+    const fixedCandidate = fixedChoices?.get(note.id);
+
+    // A locked note's outcome doesn't depend on the density roll, and
+    // skipping the rng() call for it keeps "how much randomness the free
+    // notes see" identical whether or not a partial regeneration is in
+    // play — a locked note is invisible to the RNG stream, not just to
+    // candidate generation.
+    const shouldHarmonize = fixedCandidate ? true : rng() < effectiveDensity(style, section, note);
 
     const restOnly: HarmonyCandidate[] = [{ pitch: null, relation: "rest", chordRole: null }];
 
@@ -171,15 +192,17 @@ export function planHarmonyTrack(params: PlanHarmonyTrackParams): PlanHarmonyTra
     for (const beam of beams) {
       // Candidates depend on prevHarmonyPitch, which differs per beam, so
       // the pool is regenerated per beam rather than shared across them.
-      const pool = shouldHarmonize
-        ? generateCandidates({
-            melodyPitch: note.pitch,
-            chord,
-            key,
-            vocalRange,
-            prevHarmonyPitch: beam.lastHarmonyPitch,
-          })
-        : restOnly;
+      const pool = fixedCandidate
+        ? [fixedCandidate]
+        : shouldHarmonize
+          ? generateCandidates({
+              melodyPitch: note.pitch,
+              chord,
+              key,
+              vocalRange,
+              prevHarmonyPitch: beam.lastHarmonyPitch,
+            })
+          : restOnly;
 
       for (const candidate of pool) {
         const ctx: ScoringContext = {
