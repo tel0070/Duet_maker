@@ -1,0 +1,33 @@
+.style-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.style-picker-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #f2f0ff;
+  cursor: pointer;
+}
+
+.style-picker-option span {
+  font-size: 0.78rem;
+  color: #b9b3dd;
+}
+
+.style-picker-option--active {
+  border-color: #8b7bff;
+  background: rgba(139, 123, 255, 0.18);
+}
+
+.style-picker-option:focus-visible {
+  outline: 2px solid #ffd166;
+  outline-offset: 2px;
+}

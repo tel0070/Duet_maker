@@ -1,0 +1,58 @@
+.editor-table {
+  overflow-x: auto;
+}
+
+.editor-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.editor-table th,
+.editor-table td {
+  padding: 4px 6px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.editor-table input,
+.editor-table select {
+  background: #1b1930;
+  color: #f2f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 2px 4px;
+  width: 100%;
+  min-width: 56px;
+}
+
+.editor-table button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.editor-table button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.editor-table-row--selected {
+  background: rgba(255, 209, 102, 0.12);
+}
+
+.editor-table-add-form {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.editor-table-add-form input,
+.editor-table-add-form select {
+  width: auto;
+  min-width: 70px;
+}

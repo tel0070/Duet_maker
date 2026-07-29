@@ -1,0 +1,19 @@
+{
+  "name": "Duet Maker — Solo-to-Duet Vocal Arranger",
+  "short_name": "Duet Maker",
+  "description": "솔로곡을 듀엣곡처럼 재편곡하는 브라우저 기반 보컬 편곡 도구",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#151322",
+  "theme_color": "#151322",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "key": "C major",
+  "bpm": 96,
+  "chords": [
+    {
+      "id": "chord-1",
+      "root": "C",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 0,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-2",
+      "root": "G",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 4,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-3",
+      "root": "A",
+      "quality": "min",
+      "extensions": [],
+      "startTime": 8,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-4",
+      "root": "F",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 12,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-5",
+      "root": "C",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 16,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-6",
+      "root": "G",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 20,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-7",
+      "root": "A",
+      "quality": "min",
+      "extensions": [],
+      "startTime": 24,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-8",
+      "root": "F",
+      "quality": "maj",
+      "extensions": [],
+      "startTime": 28,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    }
+  ],
+  "sections": [
+    {
+      "id": "section-25",
+      "type": "intro",
+      "startTime": 0,
+      "endTime": 4,
+      "energy": 0.2,
+      "harmonyDensity": 0.1
+    },
+    {
+      "id": "section-26",
+      "type": "verse",
+      "startTime": 4,
+      "endTime": 16,
+      "energy": 0.35,
+      "harmonyDensity": 0.4
+    },
+    {
+      "id": "section-27",
+      "type": "chorus",
+      "startTime": 16,
+      "endTime": 24,
+      "energy": 0.75,
+      "harmonyDensity": 0.8
+    },
+    {
+      "id": "section-28",
+      "type": "finalChorus",
+      "startTime": 24,
+      "endTime": 32,
+      "energy": 0.95,
+      "harmonyDensity": 0.95
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "duet-maker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Solo-to-Duet Vocal Arranger — portable, no-server, browser-first harmony generation.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @duet-maker/web dev",
+    "build": "pnpm -r --filter \"./packages/**\" run build && pnpm --filter @duet-maker/web build",
+    "test": "pnpm -r run test",
+    "test:unit": "pnpm -r --filter \"./packages/**\" run test",
+    "test:e2e": "pnpm --filter @duet-maker/web run test:e2e",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.11.0"
+  }
+}

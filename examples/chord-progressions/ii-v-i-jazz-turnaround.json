@@ -1,0 +1,76 @@
+{
+  "key": "C major",
+  "bpm": 110,
+  "chords": [
+    {
+      "id": "chord-29",
+      "root": "D",
+      "quality": "min7",
+      "extensions": [],
+      "startTime": 0,
+      "duration": 2,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-30",
+      "root": "G",
+      "quality": "dom7",
+      "extensions": [],
+      "startTime": 2,
+      "duration": 2,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-31",
+      "root": "C",
+      "quality": "maj7",
+      "extensions": [],
+      "startTime": 4,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-32",
+      "root": "D",
+      "quality": "min7",
+      "extensions": [],
+      "startTime": 8,
+      "duration": 2,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-33",
+      "root": "G",
+      "quality": "dom7",
+      "extensions": [],
+      "startTime": 10,
+      "duration": 2,
+      "confidence": 1,
+      "source": "user-input"
+    },
+    {
+      "id": "chord-34",
+      "root": "C",
+      "quality": "maj7",
+      "extensions": [],
+      "startTime": 12,
+      "duration": 4,
+      "confidence": 1,
+      "source": "user-input"
+    }
+  ],
+  "sections": [
+    {
+      "id": "section-46",
+      "type": "bridge",
+      "startTime": 0,
+      "endTime": 16,
+      "energy": 0.55,
+      "harmonyDensity": 0.6
+    }
+  ]
+}

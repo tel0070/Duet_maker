@@ -1,0 +1,22 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Flags newly-introduced dependencies with known vulnerabilities or
+      # incompatible licenses on each PR. Requires the repo's Dependency
+      # graph setting to be enabled (Settings → Security → Code security
+      # and analysis) — continue-on-error so a PR isn't blocked by an
+      # account-level setting a workflow file can't toggle; remove this
+      # once that setting is confirmed on and this step passes normally.
+      - uses: actions/dependency-review-action@v4
+        continue-on-error: true
