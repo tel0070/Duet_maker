@@ -36,7 +36,7 @@ output before trusting it, and update it the moment it goes stale.
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
 | `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`). 101 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, IndexedDB autosave, Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: multi-project management, dragging chords/sections, two-sided continuity for section regeneration. |
+| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete) + guide playback & recording (**Phase 3 checklist fully done**). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, multi-project IndexedDB storage with a "최근 프로젝트" list (open/delete), Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony, A-B loop, 4-beat count-in), microphone recording (record/stop/playback/download), and a "재생하며 녹음" action that starts both together — all real, all covered by Playwright e2e tests (recording verified via Playwright's fake-media-device flags, no real mic needed; loop/count-in/sync verified by e2e tests that wait out real Web Audio timing) and manually verified in a real browser (see `HANDOFF.md`). **Not done**: dragging chords/sections on the piano roll, two-sided continuity for section regeneration. |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
 | `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; the Phase 3 playback engine is small enough to live in `apps/web/src/lib/audio-engine.ts` rather than a separate `audio-ui` package — revisit if audio code grows enough to be reused outside `apps/web`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
@@ -127,12 +127,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   round-tripping through the same writer), 9 scenario progressions × 4
   styles as an integration matrix, and `regenerateSection`'s "everything
   outside the target section is byte-identical" guarantee.
-- `apps/web/tests/unit/` — storage (IndexedDB, via `fake-indexeddb`),
-  Zustand store behavior (including the section-regenerate action's
-  guard/error path), landing page, hash routing, piano-roll coordinate
-  math (pure functions), audio-engine scheduling logic (via a fake
-  `AudioContext` with spied nodes), microphone-recording chunk assembly
-  (via a fake `MediaRecorder` + fake `MediaStream`, and a stubbed
+- `apps/web/tests/unit/` — multi-project storage (IndexedDB, via
+  `fake-indexeddb`: list/load/save/delete by id, last-opened tracking, the
+  legacy single-slot migration, and skipping corrupted entries), Zustand
+  store behavior (including the section-regenerate action's guard/error
+  path, and multi-project actions — fork-on-sample-load, keep-id-on-
+  import, open/delete/refresh), landing page, hash routing, piano-roll
+  coordinate math (pure functions), audio-engine scheduling logic (via a
+  fake `AudioContext` with spied nodes), microphone-recording chunk
+  assembly (via a fake `MediaRecorder` + fake `MediaStream`, and a stubbed
   `navigator` for the no-API-available error path) — all without needing
   real audio/microphone hardware — and an integration-style editor test
   that adds a note/chord through the actual table UI and generates a real
@@ -154,10 +157,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   `--use-fake-device-for-media-stream`/`--use-fake-ui-for-media-stream`
   flags — see `playwright.config.ts` — so `getUserMedia`/`MediaRecorder`
   run for real against a synthetic device, no actual microphone needed
-  and nothing depends on OS-level permission prompts), and the "재생하며
+  and nothing depends on OS-level permission prompts), the "재생하며
   녹음" combined action (`sync-playback-recording.spec.ts`: confirms both
   systems actually start together and stop together, and that it falls
-  back to melody-only playback when no harmony exists yet).
+  back to melody-only playback when no harmony exists yet), and
+  multi-project management (`project-management.spec.ts`: editing a blank
+  project actually saves it and lists it, "새 프로젝트" doesn't delete the
+  previous one, opening a listed project genuinely switches the editor's
+  fields, and deleting the currently-open one falls back to a fresh blank
+  project — all against real IndexedDB timing, not a mock).
 - There is no separate "human evaluation" tooling yet (spec calls for a
   1-5 rating form); not built, not claimed as built.
 
@@ -184,20 +192,19 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. Multi-project management (recent projects list, per-project delete) if
-   a single autosave slot proves limiting in practice.
-3. Drag/resize support for chords and sections on the piano roll (currently
+2. Drag/resize support for chords and sections on the piano roll (currently
    only melody notes are drag-editable there — chords/sections are
-   table-only). Lower priority than the above since the tables already
-   cover the same edits.
-4. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
+   table-only). The tables already cover the same edits, so this is a
+   convenience improvement, not a missing capability.
+3. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
    seam into the locked note *after* the regenerated section, not just the
    one before it — if the current one-directional version proves
    noticeable in practice.
-5. Phase 3's checklist is now fully done. Next phase-scale work is Phase 4
-   (vocal file analysis / browser-side pitch extraction) — a materially
-   larger undertaking than anything above; don't start it without
-   re-reading `docs/PRODUCT_SPEC.md`'s Phase 4 section first.
+4. Phase 3's checklist is now fully done, and multi-project management
+   (§2 above) is now done too. Next phase-scale work is Phase 4 (vocal
+   file analysis / browser-side pitch extraction) — a materially larger
+   undertaking than anything above; don't start it without re-reading
+   `docs/PRODUCT_SPEC.md`'s Phase 4 section first.
 
 ## 9. Known issues / deliberate simplifications
 
@@ -251,6 +258,18 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   permission grant, if not already granted, happens before playback
   starts). Each panel's own standalone start/stop buttons still work
   independently. See `docs/DECISIONS.md`.
+- Multi-project storage (`apps/web/src/lib/storage.ts`) keys IndexedDB
+  records by each project's own `id` instead of a single fixed slot, plus
+  a small `meta` object store tracking which project id was last opened.
+  A pre-existing single-slot autosave (stored under the literal key
+  `"current"`) is migrated in place, lazily, the first time `listProjects`
+  or `loadLastOpenedProject` runs after upgrading — not a separate
+  migration step the user has to trigger. Loading a sample project always
+  forks to a new id (so reselecting the same sample never silently
+  overwrites a previously edited copy); importing a project JSON file
+  keeps that file's own id (so re-importing your own export resumes/
+  overwrites that same entry, which is what a user expects). See
+  `docs/DECISIONS.md`.
 - The editor has no Web Worker — `generateDuetArrangement` runs on the main
   thread. Fine at the note counts in the demo projects (tens of notes,
   sub-100ms); revisit if real user songs are long enough to cause visible

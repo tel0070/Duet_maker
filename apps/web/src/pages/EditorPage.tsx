@@ -4,6 +4,7 @@ import { HarmonyResults } from "../components/HarmonyResults.js";
 import { NoteTable } from "../components/NoteTable.js";
 import { PianoRoll } from "../components/PianoRoll.js";
 import { PlaybackPanel, type PlaybackPanelHandle } from "../components/PlaybackPanel.js";
+import { ProjectList } from "../components/ProjectList.js";
 import { RecordingPanel, type RecordingPanelHandle } from "../components/RecordingPanel.js";
 import { SectionTable } from "../components/SectionTable.js";
 import { StylePicker } from "../components/StylePicker.js";
@@ -68,6 +69,11 @@ export function EditorPage() {
   return (
     <div className="editor-page">
       <Toolbar />
+
+      <section className="editor-section">
+        <h2>최근 프로젝트</h2>
+        <ProjectList />
+      </section>
 
       <section className="editor-section">
         <h2>프로젝트 정보</h2>

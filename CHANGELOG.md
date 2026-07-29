@@ -7,6 +7,11 @@ need an entry.
 
 ### Added
 
+- **Multi-project management.** The editor now has a "최근 프로젝트" panel
+  listing every project saved in this browser, with "열기"/"삭제" per
+  project. "새 프로젝트" no longer deletes anything — it just starts an
+  unsaved blank project. A previous single-slot autosave is migrated in
+  automatically.
 - **재생하며 녹음 (play while recording).** A single button in the editor
   now starts the microphone recording and guide playback together (falls
   back to melody-only playback if no harmony has been generated yet), and
@@ -61,6 +66,5 @@ need an entry.
   drag-editable on the piano roll.
 - Section regeneration voice-leads correctly *into* the regenerated
   section but doesn't specially optimize the seam back *out* of it.
-- Only one autosave slot exists (no multi-project list).
 
 There is no released/deployed version yet.

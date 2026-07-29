@@ -2,13 +2,14 @@
 
 ## Last updated
 
-2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
+2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration + multi-project management, then Phase 3 guide playback + microphone recording + A-B loop/count-in + sync)
 
 ## Current phase
 
-Phase 0 and Phase 1 are done. Phase 2 (web editor) is functional but not
-feature-complete. **Phase 3 (guide playback & recording) checklist is
-fully done**, including the "재생하며 녹음" combined action.
+Phase 0 and Phase 1 are done. Phase 2 (web editor) is functional and now
+includes multi-project management; the only remaining Phase 2 gap is
+chord/section piano-roll dragging. **Phase 3 (guide playback & recording)
+checklist is fully done**, including the "재생하며 녹음" combined action.
 
 ## Working features
 
@@ -30,7 +31,11 @@ fully done**, including the "재생하며 녹음" combined action.
   - Shows the full per-note result table (relation, chord role, motion,
     confidence, Korean `styleReason`).
   - Exports real MIDI and project-JSON files; imports project JSON back.
-  - Autosaves to IndexedDB (single slot) and restores on refresh.
+  - Autosaves each project to IndexedDB, keyed by its own id, and restores
+    the last-opened one on refresh. A "최근 프로젝트" panel lists every
+    saved project (name + last-updated time) with "열기"/"삭제" per row;
+    "새 프로젝트" starts a fresh, unsaved project without deleting
+    anything else.
   - **Plays a guide audio track**: 4 voices (piano/soft synth/choir pad/
     humming), main melody alone / harmony alone / both together in sync,
     independent volume per track, 0.5x-1.25x speed, an A-B loop (start/end
@@ -53,8 +58,6 @@ fully done**, including the "재생하며 녹음" combined action.
 
 ## Partially working features
 
-- **Project persistence** is a single autosave slot, not a multi-project
-  library.
 - **Piano-roll drag editing covers melody notes only** — chords/sections
   are table-only.
 - **Section regeneration's continuity is one-directional** (voice-leads
@@ -114,6 +117,15 @@ fully done**, including the "재생하며 녹음" combined action.
   what the microphone actually picked up — not a clean guide+voice mix.
   See `docs/DECISIONS.md` for why that's the deliberate scope, not a
   shortfall.
+- **Multi-project storage keys the same IndexedDB store by project id**
+  instead of adding a second store or rewriting the schema; a small new
+  `meta` store just tracks which id was last opened. A pre-existing
+  single-slot save is migrated in place, lazily, the first time it's read
+  after upgrading — no separate migration step. `loadSampleProject` forks
+  to a new id every time (so reselecting a sample never overwrites a
+  previous edit); `importProjectFile` keeps the file's own id (so
+  re-importing your own export resumes that same entry). See
+  `docs/DECISIONS.md`.
 
 ## Next recommended task
 
@@ -121,54 +133,66 @@ Pick one:
 
 1. **Confirm the GitHub Pages deployment decision** with a human — open
    since Phase 0, still unresolved.
-2. Multi-project management, chord/section piano-roll dragging, or
-   two-sided section-regeneration continuity — see `AGENTS.md` §8.
-3. Phase 3's checklist is now fully done; the next phase-scale work is
-   Phase 4 (vocal file analysis / browser-side pitch extraction) — read
-   `docs/PRODUCT_SPEC.md`'s Phase 4 section before starting, it is a
-   materially bigger undertaking than anything above.
+2. Chord/section piano-roll dragging, or two-sided section-regeneration
+   continuity — see `AGENTS.md` §8.
+3. Phase 3's checklist and multi-project management are now both fully
+   done; the next phase-scale work is Phase 4 (vocal file analysis /
+   browser-side pitch extraction) — read `docs/PRODUCT_SPEC.md`'s Phase 4
+   section before starting, it is a materially bigger undertaking than
+   anything above.
 
 ## Commands to reproduce current state
 
 ```bash
 pnpm install
 pnpm validate    # lint + typecheck + test + build, all packages
-pnpm test:e2e    # Playwright — drag/resize, section regen, playback, recording, sync
+pnpm test:e2e    # Playwright — drag/resize, section regen, playback, recording, sync, project management
 ```
 
-Expected: all green. As of this handoff: 185 unit tests (20 shared-types +
-101 harmony-core + 64 web) and 23 Playwright e2e tests, all passing; lint
+Expected: all green. As of this handoff: 200 unit tests (20 shared-types +
+101 harmony-core + 79 web) and 28 Playwright e2e tests, all passing; lint
 and typecheck clean; build succeeds.
 
 To see it running locally: `pnpm dev`, click "편곡 시작하기 (Beta)", pick a
 sample, "화음 생성", try "가이드 재생" → "함께 재생" (try the "구간 반복"
-and "카운트인" toggles too), "녹음" → "녹음 시작", and "재생하며 녹음" to
-try both together (grant the microphone permission prompt).
+and "카운트인" toggles too), "녹음" → "녹음 시작", "재생하며 녹음" to try
+both together (grant the microphone permission prompt), and add a note or
+rename the project to see it appear under "최근 프로젝트".
 
 ## Files changed in the latest major work (this session)
 
-Syncing recording with guide playback, added right after A-B loop/count-in:
+Multi-project management, added right after syncing recording with
+playback:
 
-- `apps/web/src/components/PlaybackPanel.tsx` — converted to
-  `forwardRef<PlaybackPanelHandle>`, exposing `playMelody`/`playHarmony`/
-  `playBoth`/`stop` via `useImperativeHandle`.
-- `apps/web/src/components/RecordingPanel.tsx` — converted to
-  `forwardRef<RecordingPanelHandle>`, exposing `start` (now returns
-  `Promise<boolean>` — whether mic access actually succeeded) and `stop`.
-- `apps/web/src/pages/EditorPage.tsx` (+ CSS) — new "재생하며 녹음"
-  section: one button starts recording then playback (melody-only if no
-  harmony exists yet), another stops both.
-- `apps/web/tests/e2e/sync-playback-recording.spec.ts` — new: both
-  actually start together, the melody-only fallback works, no console
-  errors.
-- `apps/web/tests/e2e/recording.spec.ts` — fixed a locator collision
-  (both "녹음 정지" and the new "재생·녹음 정지" now match a substring
-  `getByRole` query; the standalone stop-button locator now uses
-  `exact: true`).
+- `apps/web/src/lib/storage.ts` — rewritten from a single "current" slot
+  to `saveProject`/`loadProject`/`listProjects`/`deleteProject`/
+  `setLastOpenedProject`/`loadLastOpenedProject`/`clearAllProjects`, all
+  keyed by each project's own id, plus a lazy one-time migration of any
+  pre-existing single-slot save.
+- `apps/web/src/store/project-store.ts` — added `projects` state and
+  `refreshProjectList`/`openProject`/`deleteProjectById`/
+  `importProjectFile` actions; `loadSampleProject` now forks to a new id;
+  `newProject` no longer touches storage; autosave now refreshes the
+  project list on success.
+- `apps/web/src/components/ProjectList.tsx` (+ CSS) — new "최근 프로젝트"
+  panel: name, last-updated time, "열기"/"삭제" per row, highlights the
+  currently open project.
+- `apps/web/src/components/Toolbar.tsx` — JSON import now calls
+  `importProjectFile` (keeps the file's id) instead of reusing the sample
+  loader (which forks).
+- `apps/web/src/pages/EditorPage.tsx` — new "최근 프로젝트" section.
+- `apps/web/tests/unit/storage.test.ts` — rewritten for the multi-project
+  API, plus a dedicated legacy-migration test.
+- `apps/web/tests/unit/project-store.test.ts` — new multi-project-action
+  tests.
+- `apps/web/tests/e2e/project-management.spec.ts` — new: editing a blank
+  project saves and lists it, "새 프로젝트" doesn't delete the previous
+  one, opening/deleting via the list actually works, no console errors.
 
-(Prior major work: A-B loop/count-in, microphone recording, guide
-playback, section-level regeneration, piano-roll drag editing, and the
-initial Phase 2 editor — see earlier commits.)
+(Prior major work: syncing recording with playback, A-B loop/count-in,
+microphone recording, guide playback, section-level regeneration,
+piano-roll drag editing, and the initial Phase 2 editor — see earlier
+commits.)
 
 ## Items requiring human evaluation
 

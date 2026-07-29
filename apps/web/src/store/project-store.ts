@@ -10,7 +10,16 @@ import {
 } from "@duet-maker/shared-types";
 import { generateDuetArrangement, importMelodyFromMidi, regenerateSection } from "@duet-maker/harmony-core";
 import { create } from "zustand";
-import { clearCurrentProject, loadCurrentProject, saveCurrentProject } from "../lib/storage.js";
+import {
+  clearAllProjects,
+  deleteProject,
+  listProjects,
+  loadLastOpenedProject,
+  loadProject,
+  saveProject,
+  setLastOpenedProject,
+  type ProjectSummary,
+} from "../lib/storage.js";
 
 function newId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -36,6 +45,7 @@ function blankProject(): ProjectFile {
 
 export interface ProjectState {
   project: ProjectFile;
+  projects: ProjectSummary[];
   selectedStyle: DuetStyle;
   seed: number;
   hydrated: boolean;
@@ -67,9 +77,14 @@ export interface ProjectState {
   currentArrangement: () => DuetArrangement | null;
 
   loadSampleProject: (project: ProjectFile) => void;
+  importProjectFile: (project: ProjectFile) => void;
   newProject: () => void;
   hydrateFromStorage: () => Promise<void>;
   resetStorage: () => Promise<void>;
+
+  refreshProjectList: () => Promise<void>;
+  openProject: (id: string) => Promise<void>;
+  deleteProjectById: (id: string) => Promise<void>;
 }
 
 function touch(project: ProjectFile): ProjectFile {
@@ -80,14 +95,17 @@ let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 function queueAutosave(project: ProjectFile) {
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
-    saveCurrentProject(project).catch((error: unknown) => {
-      console.warn("자동 저장에 실패했습니다.", error);
-    });
+    saveProject(project)
+      .then(() => useProjectStore.getState().refreshProjectList())
+      .catch((error: unknown) => {
+        console.warn("자동 저장에 실패했습니다.", error);
+      });
   }, 500);
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   project: blankProject(),
+  projects: [],
   selectedStyle: "cleanPop",
   seed: 1,
   hydrated: false,
@@ -261,24 +279,57 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   loadSampleProject: (project) => {
-    set({ project: touch(project), generationError: null, importError: null });
-    queueAutosave(project);
+    // Forked to a fresh id: reselecting the same sample later starts a new
+    // project entry rather than silently overwriting a previously edited
+    // copy saved under the sample's own fixed id.
+    const now = new Date().toISOString();
+    const forked: ProjectFile = { ...project, id: newId("project"), createdAt: now, updatedAt: now };
+    set({ project: forked, generationError: null, importError: null, seed: 1 });
+    queueAutosave(forked);
+  },
+  importProjectFile: (project) => {
+    // Keeps the file's own id: re-importing a project you exported earlier
+    // resumes/overwrites that same saved entry, matching what a user
+    // expects from "가져오기" on their own file.
+    const updated = touch(project);
+    set({ project: updated, generationError: null, importError: null, seed: 1 });
+    queueAutosave(updated);
   },
   newProject: () => {
+    // Does not touch storage — starting a blank project never deletes any
+    // other saved project. It simply isn't persisted until first edited.
     const project = blankProject();
     set({ project, generationError: null, importError: null, seed: 1 });
-    clearCurrentProject().catch(() => undefined);
   },
   hydrateFromStorage: async () => {
     try {
-      const stored = await loadCurrentProject();
+      const [stored, projects] = await Promise.all([loadLastOpenedProject(), listProjects()]);
       if (stored) set({ project: stored });
+      set({ projects });
     } finally {
       set({ hydrated: true });
     }
   },
   resetStorage: async () => {
-    await clearCurrentProject();
-    set({ project: blankProject() });
+    await clearAllProjects();
+    set({ project: blankProject(), projects: [] });
+  },
+
+  refreshProjectList: async () => {
+    const projects = await listProjects();
+    set({ projects });
+  },
+  openProject: async (id) => {
+    const stored = await loadProject(id);
+    if (!stored) return;
+    await setLastOpenedProject(id);
+    set({ project: stored, generationError: null, importError: null, seed: 1 });
+  },
+  deleteProjectById: async (id) => {
+    await deleteProject(id);
+    await get().refreshProjectList();
+    if (get().project.id === id) {
+      set({ project: blankProject(), generationError: null, importError: null, seed: 1 });
+    }
   },
 }));

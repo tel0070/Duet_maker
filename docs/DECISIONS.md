@@ -88,6 +88,51 @@ Autosave is triggered explicitly at the end of each mutating store action
 subscribe-to-everything approach — keeps the "what triggers a save" logic
 visible at each call site.
 
+## Multi-project storage: key by project id, not a second store or a rewrite
+
+The original single-slot autosave (`apps/web/src/lib/storage.ts`) stored
+exactly one `ProjectFile` under the literal key `"current"`. Moving to
+multi-project support did not mean introducing a new object store
+alongside it or restructuring the schema — it meant keying the *same*
+`"projects"` object store by each project's own `id` field (already part
+of `ProjectFileV1`) instead of a fixed string, plus one small new `"meta"`
+object store holding a single `lastOpenedProjectId` pointer so refreshing
+the page reopens whichever project was open, not an arbitrary one.
+
+A pre-existing single-slot save is migrated in place, lazily: the first
+time `listProjects()` or `loadLastOpenedProject()` runs after the code
+upgrades (`DB_VERSION` 1 → 2), it checks for a value still sitting under
+the legacy `"current"` key, re-keys it under its own `id`, marks it
+last-opened, and deletes the legacy key. This is a no-op on every
+subsequent call (the legacy key won't exist anymore), so it needed no
+separate "run this migration" step in the app's startup sequence — reading
+the data at all is enough to migrate it, and a user's in-progress project
+is never silently dropped by the upgrade.
+
+Two different "load a project I didn't just save myself" paths needed
+different id semantics, so the store exposes them as two distinct actions
+rather than one generic `loadProject`-ish action:
+
+- **`loadSampleProject`** (dropdown-selecting a bundled demo song) forks to
+  a brand-new id every time. The sample JSON files ship with a fixed id;
+  keeping that id would mean reselecting the same sample a second time
+  silently overwrites whatever the user had already edited into that
+  slot — a real data-loss trap once saves are keyed by id instead of
+  always sharing the one autosave slot.
+- **`importProjectFile`** (the "프로젝트 JSON 가져오기" file picker) keeps
+  the imported file's own id. Re-importing a file you previously exported
+  from this same app is a legitimate "resume this project" action, and a
+  user reasonably expects that to update the same saved entry rather than
+  create a duplicate every time.
+
+`newProject` ("새 프로젝트") no longer touches storage at all. Previously
+it called the single-slot `clearCurrentProject()`, which was fine when
+there was only one slot to begin with; with multiple projects, deleting
+anything as a side effect of "start something new" would be a surprising
+and unnecessary loss. A blank project simply isn't persisted until the
+user actually edits it, exactly like any other project before its first
+autosave fires.
+
 ## Phase 2 editor: table-based editing first, piano-roll dragging as a follow-up
 
 The first Phase 2 pass shipped `PianoRoll.tsx` as display + click-to-select

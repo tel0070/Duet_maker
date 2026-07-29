@@ -9,6 +9,7 @@ import "./Toolbar.css";
 export function Toolbar() {
   const project = useProjectStore((s) => s.project);
   const loadSample = useProjectStore((s) => s.loadSampleProject);
+  const importProjectFile = useProjectStore((s) => s.importProjectFile);
   const newProject = useProjectStore((s) => s.newProject);
   const importMelodyFile = useProjectStore((s) => s.importMelodyFile);
   const currentArrangement = useProjectStore((s) => s.currentArrangement());
@@ -48,7 +49,7 @@ export function Toolbar() {
     try {
       const raw = JSON.parse(await file.text());
       const parsed = migrateProjectFile(raw);
-      loadSample(parsed);
+      importProjectFile(parsed);
       setJsonError(null);
     } catch (error) {
       setJsonError(error instanceof Error ? error.message : "프로젝트 파일을 읽을 수 없습니다.");

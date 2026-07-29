@@ -40,10 +40,10 @@ item's state changes.
 - [x] Harmony track display with reasons/scores visible (full per-note table: relation, chord role, motion, confidence, reason)
 - [x] Manual note editing — **two ways**: drag/resize/add/delete directly on the piano roll (`apps/web/src/components/PianoRoll.tsx`, pointer events, verified with 5 Playwright e2e tests), or via the note table (add/edit/delete rows)
 - [x] MIDI export from the UI (downloads a real, byte-verified .mid)
-- [x] IndexedDB project save/restore across refresh (single autosave slot, debounced; verified manually in a real browser — see `HANDOFF.md`)
+- [x] IndexedDB project save/restore across refresh (debounced autosave; verified manually in a real browser — see `HANDOFF.md`)
 - [x] Bonus, not originally listed: project JSON export/import, sample project loader (3 demo songs), "다른 결과 보기" (reroll with a new seed)
 - [x] Section-level partial regeneration — a "재생성" button per row in the section table calls `regenerateSection` (`packages/harmony-core`), which locks every note outside the target section to its previous exact pitch/relation and only re-runs the beam search for notes inside it. Requires a full generation to exist first (button is disabled until then). One-directional continuity only — see `AGENTS.md` §9 for the documented limitation.
-- [ ] **Not done**: multi-project management (recent projects list, per-project delete) — only a single autosave slot exists
+- [x] Multi-project management — a "최근 프로젝트" panel (`apps/web/src/components/ProjectList.tsx`) lists every project saved in IndexedDB (`apps/web/src/lib/storage.ts`, now keyed by each project's own id instead of a single fixed slot, with a lazy one-time migration of any pre-existing single-slot autosave), with "열기"/"삭제" per row. "새 프로젝트" no longer deletes anything — it just starts an unsaved blank project.
 - [ ] **Not done**: dragging/resizing *chords* or *sections* on the piano roll (only melody notes are drag-editable; chords/sections remain table-only)
 
 ## Phase 3 — Guide playback & recording

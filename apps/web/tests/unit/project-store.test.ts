@@ -1,4 +1,6 @@
+import { DEFAULT_VOCAL_RANGE, type ProjectFile } from "@duet-maker/shared-types";
 import { beforeEach, describe, expect, it } from "vitest";
+import { saveProject } from "../../src/lib/storage.js";
 import { useProjectStore } from "../../src/store/project-store.js";
 
 describe("useProjectStore", () => {
@@ -124,5 +126,93 @@ describe("useProjectStore", () => {
     const versePitchesAfter = after.harmonyTrack.slice(0, 2).map((h) => h.generatedPitch);
     expect(versePitchesAfter).toEqual(versePitchesBefore);
     expect(useProjectStore.getState().generationError).toBeNull();
+  });
+});
+
+describe("useProjectStore multi-project management", () => {
+  function makeStoredProject(overrides: Partial<ProjectFile> = {}): ProjectFile {
+    const now = new Date().toISOString();
+    return {
+      schemaVersion: "1.0.0",
+      id: "stored-1",
+      name: "저장된 프로젝트",
+      createdAt: now,
+      updatedAt: now,
+      bpm: 120,
+      key: "C major",
+      mainMelody: [],
+      chords: [],
+      sections: [],
+      vocalRange: DEFAULT_VOCAL_RANGE,
+      arrangements: [],
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    await useProjectStore.getState().resetStorage();
+  });
+
+  it("loadSampleProject assigns a fresh id each time, even for the same sample object", () => {
+    const sample = makeStoredProject({ id: "sample-fixed-id", name: "샘플" });
+    useProjectStore.getState().loadSampleProject(sample);
+    const firstId = useProjectStore.getState().project.id;
+    useProjectStore.getState().loadSampleProject(sample);
+    const secondId = useProjectStore.getState().project.id;
+    expect(firstId).not.toBe(secondId);
+    expect(firstId).not.toBe("sample-fixed-id");
+  });
+
+  it("importProjectFile keeps the imported file's own id", () => {
+    const imported = makeStoredProject({ id: "imported-1", name: "가져온 파일" });
+    useProjectStore.getState().importProjectFile(imported);
+    expect(useProjectStore.getState().project.id).toBe("imported-1");
+  });
+
+  it("refreshProjectList reflects what's actually saved in storage", async () => {
+    await saveProject(makeStoredProject({ id: "a", name: "A" }));
+    await saveProject(makeStoredProject({ id: "b", name: "B" }));
+    await useProjectStore.getState().refreshProjectList();
+    expect(useProjectStore.getState().projects.map((p) => p.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("openProject switches the current in-memory project to the stored one", async () => {
+    await saveProject(makeStoredProject({ id: "other", name: "다른 프로젝트", bpm: 140 }));
+    await useProjectStore.getState().openProject("other");
+    expect(useProjectStore.getState().project.id).toBe("other");
+    expect(useProjectStore.getState().project.bpm).toBe(140);
+  });
+
+  it("openProject with an unknown id leaves the current project untouched", async () => {
+    const before = useProjectStore.getState().project.id;
+    await useProjectStore.getState().openProject("does-not-exist");
+    expect(useProjectStore.getState().project.id).toBe(before);
+  });
+
+  it("deleteProjectById removes it from the list and, if it was open, switches to a fresh blank project", async () => {
+    await saveProject(makeStoredProject({ id: "to-delete", name: "삭제할 프로젝트" }));
+    await useProjectStore.getState().openProject("to-delete");
+    expect(useProjectStore.getState().project.id).toBe("to-delete");
+
+    await useProjectStore.getState().deleteProjectById("to-delete");
+
+    expect(useProjectStore.getState().project.id).not.toBe("to-delete");
+    expect(useProjectStore.getState().projects.find((p) => p.id === "to-delete")).toBeUndefined();
+  });
+
+  it("deleteProjectById on a project that isn't open doesn't touch the current project", async () => {
+    await saveProject(makeStoredProject({ id: "bystander", name: "다른 프로젝트" }));
+    const currentBefore = useProjectStore.getState().project.id;
+
+    await useProjectStore.getState().deleteProjectById("bystander");
+
+    expect(useProjectStore.getState().project.id).toBe(currentBefore);
+  });
+
+  it("newProject does not delete any previously saved project", async () => {
+    await saveProject(makeStoredProject({ id: "keep-me", name: "유지되어야 함" }));
+    useProjectStore.getState().newProject();
+    await useProjectStore.getState().refreshProjectList();
+    expect(useProjectStore.getState().projects.find((p) => p.id === "keep-me")).toBeTruthy();
   });
 });
