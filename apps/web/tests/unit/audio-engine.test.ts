@@ -4,7 +4,10 @@ import {
   harmonyToScheduled,
   midiToFrequency,
   notesToScheduled,
+  scheduleCountIn,
   schedulePlayback,
+  sliceScheduledToRegion,
+  type ScheduledNote,
 } from "../../src/lib/audio-engine.js";
 
 describe("midiToFrequency", () => {
@@ -83,6 +86,30 @@ describe("notesToScheduled / harmonyToScheduled", () => {
     const scheduled = harmonyToScheduled(melody, harmony, 120);
     expect(scheduled).toHaveLength(1);
     expect(scheduled[0]!.frequency).toBeCloseTo(midiToFrequency(64), 5);
+  });
+});
+
+describe("sliceScheduledToRegion", () => {
+  const notes: ScheduledNote[] = [
+    { frequency: 440, startTime: 0, duration: 1, velocity: 100 }, // fully before region
+    { frequency: 494, startTime: 1.5, duration: 1, velocity: 100 }, // straddles region start
+    { frequency: 523, startTime: 3, duration: 1, velocity: 100 }, // fully inside
+    { frequency: 587, startTime: 4.5, duration: 1, velocity: 100 }, // straddles region end
+    { frequency: 659, startTime: 6, duration: 1, velocity: 100 }, // fully after region
+  ];
+
+  it("clips notes to the region and rebases startTime relative to region start", () => {
+    const sliced = sliceScheduledToRegion(notes, 2, 5);
+    expect(sliced).toEqual([
+      { frequency: 494, startTime: 0, duration: 0.5, velocity: 100 },
+      { frequency: 523, startTime: 1, duration: 1, velocity: 100 },
+      { frequency: 587, startTime: 2.5, duration: 0.5, velocity: 100 },
+    ]);
+  });
+
+  it("returns an empty array when the region is empty or inverted", () => {
+    expect(sliceScheduledToRegion(notes, 3, 3)).toEqual([]);
+    expect(sliceScheduledToRegion(notes, 5, 2)).toEqual([]);
   });
 });
 
@@ -179,6 +206,45 @@ describe("schedulePlayback", () => {
     const handle = schedulePlayback(ctx, [{ frequency: 440, startTime: 0, duration: 5, velocity: 100 }], "piano", {
       startAt: 0,
     });
+    expect(() => handle.stop()).not.toThrow();
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, expect.any(Number));
+    expect(oscillators[0]!.stop).toHaveBeenCalled();
+  });
+});
+
+describe("scheduleCountIn", () => {
+  it("schedules one click per beat, ending exactly at endAt", () => {
+    const { ctx, oscillators } = createFakeAudioContext(0);
+    scheduleCountIn(ctx, 4, 120, 1, 2.05);
+    // 120bpm = 0.5s/beat; 4 clicks land at 0.05, 0.55, 1.05, 1.55, the last one exactly one beat before 2.05.
+    expect(oscillators).toHaveLength(4);
+    expect(oscillators[3]!.start.mock.calls[0]![0]).toBeCloseTo(1.55, 10);
+    expect(oscillators[0]!.start.mock.calls[0]![0]).toBeCloseTo(0.05, 10);
+  });
+
+  it("accents the first beat with a higher pitch than the rest", () => {
+    const { ctx, oscillators } = createFakeAudioContext(0);
+    scheduleCountIn(ctx, 4, 120, 1, 2);
+    expect(oscillators[0]!.frequency.setValueAtTime).toHaveBeenCalledWith(1600, expect.any(Number));
+    expect(oscillators[1]!.frequency.setValueAtTime).toHaveBeenCalledWith(1000, expect.any(Number));
+  });
+
+  it("scales beat spacing by playbackRate", () => {
+    const { ctx, oscillators } = createFakeAudioContext(0);
+    scheduleCountIn(ctx, 2, 120, 0.5, 3); // half speed => 1s per beat instead of 0.5s
+    expect(oscillators[1]!.start).toHaveBeenCalledWith(2);
+    expect(oscillators[0]!.start).toHaveBeenCalledWith(1);
+  });
+
+  it("skips clicks that would fall before ctx.currentTime", () => {
+    const { ctx, oscillators } = createFakeAudioContext(5); // context already past the count-in window
+    scheduleCountIn(ctx, 4, 120, 1, 2.05);
+    expect(oscillators).toHaveLength(0);
+  });
+
+  it("stop() silences any still-sounding clicks without throwing", () => {
+    const { ctx, oscillators, gains } = createFakeAudioContext(0);
+    const handle = scheduleCountIn(ctx, 2, 120, 1, 1.05);
     expect(() => handle.stop()).not.toThrow();
     expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, expect.any(Number));
     expect(oscillators[0]!.stop).toHaveBeenCalled();

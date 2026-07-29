@@ -28,6 +28,29 @@ export function notesToScheduled(notes: NoteEvent[], bpm: number): ScheduledNote
   }));
 }
 
+/**
+ * Clips notes to `[startSeconds, endSeconds)`, cutting off any part outside
+ * the region and rebasing `startTime` to be relative to `startSeconds` — so
+ * the result can be scheduled with a fresh `startAt` on every loop
+ * iteration. Used for A-B loop playback.
+ */
+export function sliceScheduledToRegion(
+  notes: ScheduledNote[],
+  startSeconds: number,
+  endSeconds: number,
+): ScheduledNote[] {
+  if (endSeconds <= startSeconds) return [];
+  const sliced: ScheduledNote[] = [];
+  for (const note of notes) {
+    const noteEnd = note.startTime + note.duration;
+    if (noteEnd <= startSeconds || note.startTime >= endSeconds) continue;
+    const clippedStart = Math.max(note.startTime, startSeconds);
+    const clippedEnd = Math.min(noteEnd, endSeconds);
+    sliced.push({ ...note, startTime: clippedStart - startSeconds, duration: clippedEnd - clippedStart });
+  }
+  return sliced;
+}
+
 /** Rests (`generatedPitch: null`) and notes missing their source melody note are skipped. */
 export function harmonyToScheduled(melody: NoteEvent[], harmony: HarmonyNote[], bpm: number): ScheduledNote[] {
   const melodyById = new Map(melody.map((n) => [n.id, n]));
@@ -125,6 +148,67 @@ export function schedulePlayback(
     gainNode.connect(ctx.destination);
     osc.start(t0);
     osc.stop(t0 + dur + 0.02);
+
+    active.push({ osc, gain: gainNode });
+  }
+
+  return {
+    stop: () => {
+      const now = ctx.currentTime;
+      for (const { osc, gain } of active) {
+        try {
+          gain.gain.cancelScheduledValues(now);
+          gain.gain.setValueAtTime(gain.gain.value, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.03);
+          osc.stop(now + 0.05);
+        } catch {
+          // Already stopped (its scheduled end time already passed) — fine.
+        }
+      }
+    },
+  };
+}
+
+export interface CountInOptions {
+  /** Peak linear gain per click, 0-1. Default 0.4. */
+  gain?: number;
+}
+
+/**
+ * Schedules `beats` short metronome clicks, one per beat, timed so the last
+ * click lands exactly `beatsToSeconds(1, bpm) / playbackRate` seconds before
+ * `endAt` — i.e. the count-in ends right where real playback should begin.
+ * The first click (beat 1) is pitched higher to mark the downbeat. Returns a
+ * `PlaybackHandle` so it can be silenced early the same way as
+ * `schedulePlayback`'s handle.
+ */
+export function scheduleCountIn(
+  ctx: AudioContext,
+  beats: number,
+  bpm: number,
+  playbackRate: number,
+  endAt: number,
+  options: CountInOptions = {},
+): PlaybackHandle {
+  const gainValue = options.gain ?? 0.4;
+  const beatSeconds = beatsToSeconds(1, bpm) / playbackRate;
+  const active: Array<{ osc: OscillatorNode; gain: GainNode }> = [];
+
+  for (let i = 0; i < beats; i++) {
+    const t0 = endAt - (beats - i) * beatSeconds;
+    if (t0 < ctx.currentTime) continue;
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(i === 0 ? 1600 : 1000, t0);
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(gainValue, t0);
+    gainNode.gain.linearRampToValueAtTime(0, t0 + 0.05);
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.06);
 
     active.push({ osc, gain: gainNode });
   }

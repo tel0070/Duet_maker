@@ -7,6 +7,11 @@ need an entry.
 
 ### Added
 
+- **A-B loop and count-in for guide playback.** The playback panel now has
+  a "구간 반복 (A-B 루프)" toggle with start/end beat inputs that repeats
+  the selected region indefinitely until stopped, and a "카운트인
+  (4비트)" toggle that plays 4 metronome clicks (accented downbeat) before
+  playback starts.
 - **Microphone recording.** The editor can record from the microphone,
   play the take back, and download it. Not synced to guide playback —
   two independent actions for now.
@@ -47,7 +52,6 @@ need an entry.
 
 ### Known limitations
 
-- No A-B loop or count-in yet.
 - Recording is not synced to guide playback (two separate actions).
 - Chord/section editing is table-based; only melody notes are
   drag-editable on the piano roll.

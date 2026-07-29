@@ -24,12 +24,20 @@
   color: #b9b3dd;
 }
 
-.playback-row select {
+.playback-row select,
+.playback-row input[type="number"] {
   background: #1b1930;
   color: #f2f0ff;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   padding: 3px 6px;
+  width: 5rem;
+}
+
+.playback-row .playback-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 
 .playback-row button {

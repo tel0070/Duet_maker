@@ -191,6 +191,44 @@ clicking both close together, just without sample-accurate alignment.
 Combining them is tracked as a follow-up in `AGENTS.md` §8, not silently
 assumed to be equivalent to what a real "재생하며 녹음" feature would do.
 
+## A-B loop and count-in: region-slicing + a self-rescheduling setTimeout chain, manual beat entry
+
+`sliceScheduledToRegion` (`apps/web/src/lib/audio-engine.ts`) is a pure
+function that clips a `ScheduledNote[]` array to `[startSeconds,
+endSeconds)` and rebases each note's `startTime` to the region start. The
+loop itself is not a Web Audio native loop (`AudioBufferSourceNode.loop`
+doesn't apply here — these are per-note oscillators, not one buffer) —
+`PlaybackPanel.tsx` re-slices once, then re-invokes `schedulePlayback` with
+a fresh `startAt` every `regionDurationSeconds / rate` via a `setTimeout`
+chain, the same idiom already used for `armAutoStop`. A `loopGenerationRef`
+counter (bumped on every `stopAll()`) is checked before each rescheduled
+iteration fires, so starting a new playback action or hitting stop reliably
+kills any in-flight loop chain instead of leaving a stray timer to fire into
+a stopped context.
+
+The loop region is entered as two beat-number inputs (start/end), not
+picked from a `SongSection` dropdown. A section-based picker would read
+nicer ("루프: 절 1") but ties the loop UI to needing sections to exist and
+match what the user actually wants to rehearse, which is often a sub-phrase
+smaller than a full section (e.g. just the tricky bridge transition, not
+the whole bridge). Revisit if manual beat entry proves annoying in
+practice — the underlying `sliceScheduledToRegion` function doesn't care
+where the region numbers came from.
+
+Count-in (`scheduleCountIn`) reuses the same oscillator+gain approach as
+`schedulePlayback` rather than a sample-based click, for the same reason
+`docs/DECISIONS.md`'s guide-playback entry gives: one dependency-free code
+path, not a claim of a "real" metronome sound. It schedules backward from
+the real playback start time (`endAt`) rather than forward from "now", so
+the last click always lands exactly one beat before the first real note —
+scheduling forward from "now" would have required separately computing and
+matching that same offset, with more room for the two to drift apart. The
+first click is pitched higher (1600Hz vs 1000Hz) to mark the downbeat, a
+common metronome convention. Fixed at 4 beats (not configurable) — a
+single on/off toggle was judged enough for the common case; a beat-count
+selector can be added if 4 turns out to be the wrong default for some
+users' workflow.
+
 ## Section regeneration: lock notes via the existing beam search, not a second algorithm
 
 `regenerateSection` doesn't implement a separate "partial" search

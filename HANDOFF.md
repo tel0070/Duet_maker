@@ -2,13 +2,15 @@
 
 ## Last updated
 
-2026-07-28 (Phase 2 editor + piano-roll drag + section regeneration, then Phase 3 guide playback + microphone recording)
+2026-07-29 (Phase 2 editor + piano-roll drag + section regeneration, then Phase 3 guide playback + microphone recording + A-B loop/count-in)
 
 ## Current phase
 
 Phase 0 and Phase 1 are done. Phase 2 (web editor) is functional but not
-feature-complete. Phase 3 (guide playback & recording) is **almost**
-done — playback and recording both work; only A-B loop/count-in remain.
+feature-complete. Phase 3 (guide playback & recording) is **functionally
+complete except syncing the two** — playback (with A-B loop and count-in)
+and recording both work independently; starting them together as one
+action is the only remaining item.
 
 ## Working features
 
@@ -33,23 +35,26 @@ done — playback and recording both work; only A-B loop/count-in remain.
   - Autosaves to IndexedDB (single slot) and restores on refresh.
   - **Plays a guide audio track**: 4 voices (piano/soft synth/choir pad/
     humming), main melody alone / harmony alone / both together in sync,
-    independent volume per track, 0.5x-1.25x speed.
-  - **Records from the microphone** (new this round): "녹음 시작"/"녹음
-    정지" via `getUserMedia`+`MediaRecorder`, playback of the take via a
-    native `<audio>` element, and a download button. Verified end-to-end
-    with Playwright launched against a synthetic fake device (Chromium's
-    `--use-fake-device-for-media-stream` flag) — no real microphone
-    needed for the test to be genuine, and the same flag means this also
-    runs correctly in CI.
+    independent volume per track, 0.5x-1.25x speed, an A-B loop (start/end
+    beat inputs, repeats until stopped) and a 4-beat count-in (accented
+    downbeat click before playback starts).
+  - **Records from the microphone**: "녹음 시작"/"녹음 정지" via
+    `getUserMedia`+`MediaRecorder`, playback of the take via a native
+    `<audio>` element, and a download button. Verified end-to-end with
+    Playwright launched against a synthetic fake device (Chromium's
+    `--use-fake-device-for-media-stream` flag) — no real microphone needed
+    for the test to be genuine, and the same flag means this also runs
+    correctly in CI.
 - CI workflows (PR checks, GitHub Pages deploy, dependency review, weekly
   health check) — written and validated locally; not yet confirmed on
   GitHub's own infrastructure (see below).
 
 ## Partially working features
 
-- **Phase 3 is missing only A-B loop and count-in.** Playback and
-  recording both work; they are not synced to each other (starting the
-  guide and starting a recording are two independent manual clicks).
+- **Phase 3's only remaining item is syncing playback and recording.**
+  Both work fully on their own (including A-B loop and count-in); starting
+  the guide and starting a recording are still two independent manual
+  clicks.
 - **Project persistence** is a single autosave slot, not a multi-project
   library.
 - **Piano-roll drag editing covers melody notes only** — chords/sections
@@ -99,17 +104,22 @@ done — playback and recording both work; only A-B loop/count-in remain.
   testable too, not just assumed to work. No audio/media library
   dependency for either (no Tone.js, no RecordRTC) — the browser APIs
   were sufficient.
+- **A-B loop re-schedules rather than natively looping**: since guide
+  playback is per-note oscillators (not one `AudioBufferSourceNode`), the
+  loop is a `setTimeout` chain that re-slices and re-schedules the region
+  each iteration, guarded by a generation counter so `stopAll()` reliably
+  kills any in-flight chain — see `docs/DECISIONS.md`.
 
 ## Next recommended task
 
 Pick one:
 
-1. **A-B loop and count-in** — the one remaining Phase 3 checklist item.
-2. **Sync recording with guide playback** — a single "재생하며 녹음"
-   action, now that both pieces independently work.
-3. **Confirm the GitHub Pages deployment decision** with a human — open
+1. **Sync recording with guide playback** — a single "재생하며 녹음"
+   action, now that playback (with loop/count-in) and recording both
+   independently work. The one remaining Phase 3 checklist item.
+2. **Confirm the GitHub Pages deployment decision** with a human — open
    since Phase 0, still unresolved.
-4. Multi-project management, chord/section piano-roll dragging, or
+3. Multi-project management, chord/section piano-roll dragging, or
    two-sided section-regeneration continuity — see `AGENTS.md` §8.
 
 ## Commands to reproduce current state
@@ -120,34 +130,37 @@ pnpm validate    # lint + typecheck + test + build, all packages
 pnpm test:e2e    # Playwright — drag/resize, section regen, playback, recording
 ```
 
-Expected: all green. As of this handoff: 178 unit tests (20 shared-types +
-101 harmony-core + 57 web) and 18 Playwright e2e tests, all passing; lint
+Expected: all green. As of this handoff: 185 unit tests (20 shared-types +
+101 harmony-core + 64 web) and 20 Playwright e2e tests, all passing; lint
 and typecheck clean; build succeeds.
 
 To see it running locally: `pnpm dev`, click "편곡 시작하기 (Beta)", pick a
-sample, "화음 생성", try "가이드 재생" → "함께 재생", and "녹음" → "녹음
-시작" (grant the microphone permission prompt).
+sample, "화음 생성", try "가이드 재생" → "함께 재생" (try the "구간 반복"
+and "카운트인" checkboxes too), and "녹음" → "녹음 시작" (grant the
+microphone permission prompt).
 
 ## Files changed in the latest major work (this session)
 
-Microphone recording, added right after guide playback:
+A-B loop and count-in, added right after microphone recording:
 
-- `apps/web/src/lib/recorder.ts` (+ test) — new: `requestMicrophoneStream`,
-  `createRecordingSession` (injectable recorder factory for testing).
-- `apps/web/src/components/RecordingPanel.tsx` (+ CSS) — new: record/stop/
-  playback/download UI.
-- `apps/web/src/lib/download.ts` — widened `downloadBlob` to accept a
-  `Blob` directly (previously only `Uint8Array | string`).
-- `apps/web/src/pages/EditorPage.tsx` — added a "녹음" section.
-- `apps/web/playwright.config.ts` — added microphone permission +
-  fake-device launch flags.
-- `apps/web/tests/e2e/recording.spec.ts` — new.
-- `apps/web/tests/e2e/playback.spec.ts` — fixed a locator collision (both
-  "정지" and "녹음 정지" now match a substring `getByRole` query; playback's
-  stop-button locator now uses `exact: true`).
+- `apps/web/src/lib/audio-engine.ts` — new: `sliceScheduledToRegion`
+  (clips+rebases notes to a time region for looping), `scheduleCountIn`
+  (schedules N metronome clicks ending exactly at playback start).
+- `apps/web/tests/unit/audio-engine.test.ts` — new tests for both, against
+  the existing fake `AudioContext`.
+- `apps/web/src/components/PlaybackPanel.tsx` — added "구간 반복 (A-B
+  루프)" (start/end beat inputs) and "카운트인 (4비트)" toggles; refactored
+  the three separate play functions into one `play(kind)` that optionally
+  loops via a self-rescheduling `setTimeout` chain.
+- `apps/web/src/components/PlaybackPanel.css` — styling for the new
+  checkbox/number-input controls.
+- `apps/web/tests/e2e/playback.spec.ts` — two new real-timing tests: the
+  loop keeps playing well past when a one-shot would auto-stop; count-in
+  genuinely delays playback and still auto-stops afterward.
 
-(Prior major work: guide playback, section-level regeneration, piano-roll
-drag editing, and the initial Phase 2 editor — see earlier commits.)
+(Prior major work: microphone recording, guide playback, section-level
+regeneration, piano-roll drag editing, and the initial Phase 2 editor —
+see earlier commits.)
 
 ## Items requiring human evaluation
 
