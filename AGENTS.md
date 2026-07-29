@@ -36,7 +36,7 @@ output before trusting it, and update it the moment it goes stale.
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
 | `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import. 95 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete). MIDI import, chord/section/note tables, style picker, generate action, harmony results table, MIDI/JSON export, IndexedDB autosave — all real, all manually verified in a real browser (see `HANDOFF.md`). **Not done**: dragging notes on the piano roll (table-based editing instead), per-section partial regeneration, multi-project management. |
+| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate action, harmony results table, MIDI/JSON export, IndexedDB autosave — all real, all covered by Playwright e2e tests and manually verified in a real browser (see `HANDOFF.md`). **Not done**: per-section partial regeneration, multi-project management, dragging chords/sections (only melody notes are drag-editable). |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
 | `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; no audio playback code exists yet to justify `audio-ui`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
@@ -127,13 +127,15 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   round-tripping through the same writer), and 9 scenario progressions × 4
   styles as an integration matrix.
 - `apps/web/tests/unit/` — storage (IndexedDB, via `fake-indexeddb`),
-  Zustand store behavior, landing page, hash routing, and an
-  integration-style editor test that adds a note/chord through the actual
-  table UI and generates a real arrangement.
-- `apps/web/tests/e2e/` — Playwright specs covering the landing page and a
+  Zustand store behavior, landing page, hash routing, piano-roll coordinate
+  math (pure functions), and an integration-style editor test that adds a
+  note/chord through the actual table UI and generates a real arrangement.
+- `apps/web/tests/e2e/` — Playwright specs covering the landing page, a
   real end-to-end editor flow (load sample → generate → verify the result
   table, switch style → verify the result actually changed, no console
-  errors during use).
+  errors during use), and piano-roll drag/resize/add/delete (these can
+  only really be verified with a real layout engine — jsdom doesn't lay
+  out SVG, so the pointer-event wiring itself isn't covered by unit tests).
 - There is no separate "human evaluation" tooling yet (spec calls for a
   1-5 rating form); not built, not claimed as built.
 
@@ -160,21 +162,20 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. **Piano-roll drag editing.** The current editor edits notes via a table
-   (`apps/web/src/components/NoteTable.tsx`); dragging/resizing notes
-   directly on `PianoRoll.tsx` would be the natural next UX improvement.
-   Requires pointer-event handling and coordinate math (already have
-   `PX_PER_BEAT`/`ROW_HEIGHT` constants to build on).
-3. **Section-level partial regeneration.** Today "화음 생성" always
+2. **Section-level partial regeneration.** Today "화음 생성" always
    regenerates the whole arrangement. A "regenerate just this section"
    command needs `planHarmonyTrack` (or a new function) to accept a fixed
    prefix/suffix and only re-run the beam search over the notes inside the
    target section, seeded from the boundary notes' actual chosen pitches —
    not a small change, plan it before starting.
-4. Phase 3 (guide audio playback + recording) — now unblocked, since
+3. Phase 3 (guide audio playback + recording) — now unblocked, since
    Phase 2's editor exists and there's something to play against.
-5. Multi-project management (recent projects list, per-project delete) if
+4. Multi-project management (recent projects list, per-project delete) if
    a single autosave slot proves limiting in practice.
+5. Drag/resize support for chords and sections on the piano roll (currently
+   only melody notes are drag-editable there — chords/sections are
+   table-only). Lower priority than the above since the tables already
+   cover the same edits.
 
 ## 9. Known issues / deliberate simplifications
 
@@ -191,11 +192,14 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
 - The "human evaluation form" (1-5 ratings, spec §16) does not exist yet.
 - `packages/music-domain` and `packages/audio-ui` from the originally
   proposed structure were not created — see `docs/DECISIONS.md`.
-- The piano roll (`apps/web/src/components/PianoRoll.tsx`) is
-  display-plus-click-to-select only; it does not support dragging notes.
-  All actual note/chord/section editing happens through the tables next to
-  it. This was a deliberate scope cut for the first editor pass, not an
-  oversight — see item 2 in §8 above.
+- The piano roll (`apps/web/src/components/PianoRoll.tsx`) supports
+  drag-to-move, drag-to-resize, double-click-to-add, and Delete-to-remove
+  for **melody notes only** — chords and sections are still table-only
+  (`ChordTable.tsx`/`SectionTable.tsx`). The drag geometry math is a pure
+  module (`apps/web/src/lib/piano-roll-geometry.ts`, unit-tested) separate
+  from the pointer-event wiring (which can only really be verified with
+  Playwright, since jsdom doesn't lay out SVG — see
+  `apps/web/tests/e2e/piano-roll-drag.spec.ts`).
 - "화음 생성" always regenerates the *entire* arrangement for the selected
   style (it does replace only that style's entry in `project.arrangements`,
   not duplicate it — see `project-store.test.ts`). There is no per-section

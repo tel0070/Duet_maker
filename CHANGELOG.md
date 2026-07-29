@@ -7,6 +7,11 @@ need an entry.
 
 ### Added
 
+- **Piano-roll drag editing.** Melody notes on the editor's piano roll can
+  now be dragged to move (time + pitch), dragged at the right edge to
+  resize (duration), added by double-clicking empty space, and deleted by
+  selecting a note and pressing Delete — in addition to the existing table
+  editor. Chords and sections are still table-only.
 - **A working editor.** `apps/web` now has a real editor at `#editor`, not
   just a landing page: load a sample project or import a melody from a
   `.mid` file, edit chords/sections/melody notes via tables, view them on a
@@ -30,7 +35,8 @@ need an entry.
 
 ### Known limitations
 
-- Note/chord/section editing is table-based, not drag-on-piano-roll.
+- Chord/section editing is table-based; only melody notes are
+  drag-editable on the piano roll.
 - Regeneration always covers the whole song; there's no per-section
   regenerate yet.
 - Only one autosave slot exists (no multi-project list).

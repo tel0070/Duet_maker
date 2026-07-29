@@ -13,6 +13,12 @@
   padding: 16px;
 }
 
+.piano-roll-hint {
+  color: #8a84ab;
+  font-size: 0.76rem;
+  margin: 6px 8px 0;
+}
+
 .piano-roll-section-band {
   fill: rgba(139, 123, 255, 0.08);
   stroke: rgba(139, 123, 255, 0.25);
@@ -30,8 +36,15 @@
 }
 
 .piano-roll-note {
-  cursor: pointer;
+  cursor: grab;
   rx: 2px;
+  touch-action: none;
+}
+
+.piano-roll-resize-handle {
+  fill: transparent;
+  cursor: ew-resize;
+  touch-action: none;
 }
 
 .piano-roll-note--melody {

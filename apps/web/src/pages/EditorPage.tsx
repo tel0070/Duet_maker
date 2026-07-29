@@ -20,6 +20,9 @@ export function EditorPage() {
   const currentArrangement = useProjectStore((s) => s.currentArrangement());
   const hydrateFromStorage = useProjectStore((s) => s.hydrateFromStorage);
   const hydrated = useProjectStore((s) => s.hydrated);
+  const addNote = useProjectStore((s) => s.addNote);
+  const updateNote = useProjectStore((s) => s.updateNote);
+  const removeNote = useProjectStore((s) => s.removeNote);
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
@@ -63,6 +66,12 @@ export function EditorPage() {
           sections={project.sections}
           selectedNoteId={selectedNoteId}
           onSelectNote={setSelectedNoteId}
+          onUpdateNote={updateNote}
+          onAddNote={addNote}
+          onDeleteNote={(id) => {
+            removeNote(id);
+            setSelectedNoteId((current) => (current === id ? null : current));
+          }}
         />
         <div className="editor-tables-grid">
           <div>

@@ -8,10 +8,10 @@
 | harmony-core unit tests | `packages/harmony-core/tests/{music-theory,candidates,scoring,styles,midi-export,midi-import}.test.ts` | 48 | chord-tone construction, scale membership, range clamping, each of the 13 scoring components individually (including leap penalty, dissonance penalty, tension resolution, common-tone handling, parallel-fifths penalty), style differentiation, MIDI byte structure (export and a round-trip import) |
 | harmony-core reproducibility/integration | `packages/harmony-core/tests/generate.test.ts` | 9 | same seed → identical output, 4 styles genuinely differ, chord changes propagate, vocal range respected, missing-chord warning fires, every note has a grounded explanation |
 | Scenario matrix | `packages/harmony-core/tests/scenarios.test.ts` | 38 | 9 standard progressions (C-G-Am-F, vi-IV-I-V, ii-V-I, minor ballad, fast chord changes, climbing final chorus, long sustain, fast notes, rest-heavy phrase) × 4 styles, checked for validity (in-range, correct note count) plus two structural spot-checks |
-| Web unit tests | `apps/web/tests/unit/{storage,project-store,EditorPage,LandingPage,Root}.test.tsx` | 24 | IndexedDB round-trip (via `fake-indexeddb`), the Zustand store's mutating actions and generation flow, an integration test that drives the actual table UI to add a note/chord and generate a real arrangement, landing page content, hash-based view switching |
-| Web e2e | `apps/web/tests/e2e/{landing,editor}.spec.ts` | 5 | Playwright, real Chromium: landing page loads with no console errors; loading a sample project and generating actually produces a result; switching styles actually changes the per-note result table (not just the rounded score); no console errors while using the editor |
+| Web unit tests | `apps/web/tests/unit/{storage,project-store,EditorPage,LandingPage,Root,piano-roll-geometry}.test.tsx` | 36 | IndexedDB round-trip (via `fake-indexeddb`), the Zustand store's mutating actions and generation flow, an integration test that drives the actual table UI to add a note/chord and generate a real arrangement, landing page content, hash-based view switching, and the pure pixel↔beat/pitch conversion + drag-to-patch math behind piano-roll editing |
+| Web e2e | `apps/web/tests/e2e/{landing,editor,piano-roll-drag}.spec.ts` | 10 | Playwright, real Chromium: landing page loads with no console errors; loading a sample project and generating actually produces a result; switching styles actually changes the per-note result table (not just the rounded score); no console errors while using the editor; dragging a note moves it (verified via the note table's actual values, not just visually); resizing via the drag handle changes duration; a plain click selects rather than moving; double-click adds a note; Delete removes the selected note |
 
-Total: 144 tests, all passing as of this writing. Run `pnpm test` for unit
+Total: 151 tests, all passing as of this writing. Run `pnpm test` for unit
 tests, `pnpm test:e2e` for the Playwright suite, or `pnpm validate` for the
 full lint+typecheck+test+build gate (unit tests only — run `test:e2e`
 separately).
@@ -43,8 +43,10 @@ Musical quality is a human-evaluation concern (see below), not something
   `git diff`) rather than a CI gate. Consider adding a CI check that fails
   if the fixtures are stale (regenerated output differs from committed
   output) once this matters more.
-- **Piano-roll drag-editing tests** — there's nothing to test yet; the
-  piano roll doesn't support dragging (see `docs/DECISIONS.md`).
+- **Touch-drag verification** — the piano roll's drag handlers use pointer
+  events (which cover touch in principle, and `touch-action: none` is set
+  on draggable elements), but the e2e tests only simulate mouse drags;
+  actual touch-screen dragging hasn't been verified on a real device.
 - **Cross-browser e2e** — Playwright is configured for Chromium only so
   far (matches what's preinstalled in this dev environment); Firefox/
   WebKit projects aren't configured in `playwright.config.ts`.

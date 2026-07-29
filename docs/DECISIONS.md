@@ -88,16 +88,34 @@ Autosave is triggered explicitly at the end of each mutating store action
 subscribe-to-everything approach — keeps the "what triggers a save" logic
 visible at each call site.
 
-## Phase 2 editor: table-based note/chord/section editing, not piano-roll dragging
+## Phase 2 editor: table-based editing first, piano-roll dragging as a follow-up
 
-`PianoRoll.tsx` renders melody + harmony + chords + sections and supports
-click-to-select, but not dragging, resizing, or double-click-to-add. All
-actual edits happen through `NoteTable`/`ChordTable`/`SectionTable`
-(add/edit/delete rows via plain form inputs). This was a scope cut to ship
-a complete, tested, working end-to-end flow (import → edit → generate →
-export → persist) in one pass, rather than a piano roll with half-finished
-drag interactions. Explicitly tracked as follow-up work in `AGENTS.md` §8,
-not hidden.
+The first Phase 2 pass shipped `PianoRoll.tsx` as display + click-to-select
+only, with all actual edits going through `NoteTable`/`ChordTable`/
+`SectionTable`. That was a deliberate scope cut to ship a complete, tested,
+working end-to-end flow (import → edit → generate → export → persist) in
+one pass, rather than a piano roll with half-finished drag interactions —
+and it was tracked as explicit follow-up work rather than left unstated.
+
+The follow-up added drag-to-move, drag-to-resize, double-click-to-add, and
+Delete-to-remove for **melody notes** on the piano roll
+(`apps/web/src/components/PianoRoll.tsx`), on top of the existing tables
+(which still work and stay in sync). Chords and sections remain table-only
+— dragging a chord/section band wasn't judged worth the extra interaction
+design (resizing a chord changes its harmonic content, not just its
+shape, so "drag the edge" is less obviously the right UI than it is for a
+melody note) until a concrete need shows up.
+
+The drag math (`apps/web/src/lib/piano-roll-geometry.ts`: px↔beat/pitch
+conversion, snapping to a sixteenth-note grid, MIDI-range clamping, and
+the move/resize→patch calculation) is a pure module with no DOM
+dependency, kept separate from the pointer-event wiring in `PianoRoll.tsx`
+specifically so it has real unit tests — jsdom doesn't lay out SVG, so
+anything depending on actual bounding-box coordinates can only be
+verified with a real browser (Playwright: `piano-roll-drag.spec.ts`).
+A click vs. drag is disambiguated by total pointer movement
+(`DRAG_THRESHOLD_PX = 3`): under that, releasing selects the note instead
+of committing a (likely accidental) move.
 
 ## MIDI import lives in `packages/harmony-core`, not `apps/web`
 

@@ -35,16 +35,16 @@ item's state changes.
 - [x] MIDI import in the browser (`importMelodyFromMidi` in harmony-core, wired to a file input in the editor)
 - [x] Chord progression input (editable table: root/quality/timing, add/remove)
 - [x] Section input (editable table: type/timing/energy/density, add/remove)
-- [x] Piano roll (main melody + generated harmony, chord/section bands) — **display and click-to-select only, no drag** (see below)
+- [x] Piano roll (main melody + generated harmony, chord/section bands), **now with drag-to-move, drag-to-resize, double-click-to-add, and Delete-to-remove** (see below) — plus a parallel table editor for the same data
 - [x] Style picker + generate action wired to `packages/harmony-core`
 - [x] Harmony track display with reasons/scores visible (full per-note table: relation, chord role, motion, confidence, reason)
-- [x] Manual note editing — **via a table (add/edit/delete rows with pitch/time/duration/lyric inputs), not by dragging notes on the piano roll**
+- [x] Manual note editing — **two ways**: drag/resize/add/delete directly on the piano roll (`apps/web/src/components/PianoRoll.tsx`, pointer events, verified with 5 Playwright e2e tests), or via the note table (add/edit/delete rows)
 - [x] MIDI export from the UI (downloads a real, byte-verified .mid)
 - [x] IndexedDB project save/restore across refresh (single autosave slot, debounced; verified manually in a real browser — see `HANDOFF.md`)
 - [x] Bonus, not originally listed: project JSON export/import, sample project loader (3 demo songs), "다른 결과 보기" (reroll with a new seed)
-- [ ] **Not done**: dragging/resizing notes directly on the piano roll (table-based editing was substituted — see `docs/DECISIONS.md`)
 - [ ] **Not done**: section-level partial regeneration (regenerating one section while keeping the rest fixed) — current "생성" always regenerates the whole arrangement for the selected style; a true partial re-optimization needs planner changes not yet made (see `AGENTS.md` §9)
 - [ ] **Not done**: multi-project management (recent projects list, per-project delete) — only a single autosave slot exists
+- [ ] **Not done**: dragging/resizing *chords* or *sections* on the piano roll (only melody notes are drag-editable; chords/sections remain table-only)
 
 ## Phase 3 — Guide playback & recording
 
