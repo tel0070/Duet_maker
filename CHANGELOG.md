@@ -7,6 +7,9 @@ need an entry.
 
 ### Added
 
+- **Microphone recording.** The editor can record from the microphone,
+  play the take back, and download it. Not synced to guide playback —
+  two independent actions for now.
 - **Guide playback.** The editor can now play the main melody, the
   generated second vocal, or both together (in sync), through one of four
   simple guide voices (piano/soft synth/choir pad/humming), with
@@ -44,8 +47,8 @@ need an entry.
 
 ### Known limitations
 
-- No microphone recording, A-B loop, or count-in yet (Phase 3 is
-  playback-only so far).
+- No A-B loop or count-in yet.
+- Recording is not synced to guide playback (two separate actions).
 - Chord/section editing is table-based; only melody notes are
   drag-editable on the piano roll.
 - Section regeneration voice-leads correctly *into* the regenerated

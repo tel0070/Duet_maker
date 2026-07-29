@@ -4,6 +4,7 @@ import { HarmonyResults } from "../components/HarmonyResults.js";
 import { NoteTable } from "../components/NoteTable.js";
 import { PianoRoll } from "../components/PianoRoll.js";
 import { PlaybackPanel } from "../components/PlaybackPanel.js";
+import { RecordingPanel } from "../components/RecordingPanel.js";
 import { SectionTable } from "../components/SectionTable.js";
 import { StylePicker } from "../components/StylePicker.js";
 import { Toolbar } from "../components/Toolbar.js";
@@ -108,6 +109,11 @@ export function EditorPage() {
       <section className="editor-section">
         <h2>가이드 재생</h2>
         <PlaybackPanel melody={project.mainMelody} harmony={currentArrangement?.harmonyTrack} bpm={project.bpm} />
+      </section>
+
+      <section className="editor-section">
+        <h2>녹음</h2>
+        <RecordingPanel />
       </section>
     </div>
   );

@@ -152,7 +152,44 @@ Microphone recording was not attempted in the same pass as playback: it
 needs `getUserMedia`/`MediaRecorder`, browser permission prompts, and a
 different Playwright testing setup (fake-media-device launch flags) that
 wasn't worth rushing into the same change as a first playback
-implementation. Tracked as the next Phase 3 task in `AGENTS.md` §8.
+implementation. Implemented as a follow-up (see next section).
+
+## Microphone recording: same pure-logic/thin-wrapper split as playback, no media library
+
+`apps/web/src/lib/recorder.ts` mirrors `audio-engine.ts`'s structure:
+`createRecordingSession` takes an injectable `RecorderFactory` (defaults
+to `(stream) => new MediaRecorder(stream)`), so its actual logic — collect
+non-empty `dataavailable` chunks, assemble them into a `Blob` tagged with
+the recorder's `mimeType` on `stop`, release every track in the stream —
+is unit-tested against a hand-built fake recorder + fake `MediaStream`
+(plain objects + `vi.fn()`), with no real microphone involved.
+`requestMicrophoneStream` (the actual `getUserMedia` call) is left as a
+thin, separately-testable wrapper that throws a Korean error if
+`navigator.mediaDevices` doesn't exist at all, rather than a raw
+`undefined is not a function` browser exception.
+
+No recording/media library (RecordRTC, etc.) was added — `MediaRecorder`
+already does the encoding, and the only logic this project owns is chunk
+bookkeeping, which is a handful of lines.
+
+Testing the real `getUserMedia`/`MediaRecorder` path (not just the
+injectable logic) needed `playwright.config.ts` to launch Chromium with
+`--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` (plus
+`permissions: ["microphone"]`) so a synthetic audio device is always
+present and auto-granted — this makes the e2e test genuine (it drives the
+real browser API end-to-end) without depending on real hardware or an
+interactive permission prompt, and works the same way in CI. Note this
+flag affects *any* test that calls `getUserMedia` in this project, so if
+a future test wants to assert "permission denied" behavior specifically,
+it'll need `context.grantPermissions([])`/`clearPermissions()`, not this
+global config.
+
+Recording is intentionally **not synced to playback** in this pass — "녹음
+시작" and "함께 재생" are two separate manual clicks, not one combined
+action. A user can still approximate "sing along with the guide" by
+clicking both close together, just without sample-accurate alignment.
+Combining them is tracked as a follow-up in `AGENTS.md` §8, not silently
+assumed to be equivalent to what a real "재생하며 녹음" feature would do.
 
 ## Section regeneration: lock notes via the existing beam search, not a second algorithm
 

@@ -29,8 +29,8 @@ const FEATURES: FeatureStatus[] = [
   },
   {
     name: "녹음",
-    status: "unsupported",
-    note: "아직 개발 중입니다 (Phase 3).",
+    status: "beta",
+    note: "마이크로 녹음하고 바로 들어본 뒤 파일로 내보낼 수 있습니다. 가이드 재생과 동시에 맞춰 시작되지는 않습니다 (각각 따로 시작). A-B 구간 반복과 카운트인은 아직 없습니다.",
   },
   {
     name: "음원 업로드·자동 분석",

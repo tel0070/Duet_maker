@@ -7,7 +7,7 @@ test("play/stop toggles the playback status and the stop button's enabled state"
   await expect(page.getByTestId("score-summary")).toBeVisible();
 
   const status = page.locator(".playback-status");
-  const stopButton = page.getByRole("button", { name: "정지" });
+  const stopButton = page.getByRole("button", { name: "정지", exact: true });
   await expect(status).toHaveText("재생 중인 트랙이 없습니다.");
   await expect(stopButton).toBeDisabled();
 
@@ -58,7 +58,7 @@ test("has no console errors during a play/stop cycle", async ({ page }) => {
 
   await page.getByRole("button", { name: "함께 재생" }).click();
   await page.waitForTimeout(200);
-  await page.getByRole("button", { name: "정지" }).click();
+  await page.getByRole("button", { name: "정지", exact: true }).click();
 
   expect(errors).toEqual([]);
 });

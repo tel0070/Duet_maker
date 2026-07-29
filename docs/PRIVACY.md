@@ -27,6 +27,14 @@ this app, by default, ever, for the core feature set.
   `localhost` HTTP; nothing leaves that machine. If `local-engine` isn't
   running, Level 3 features are simply unavailable — the app does not fall
   back to any cloud service.
+- **Microphone recording (implemented)**: the editor's "녹음 시작" button
+  requests microphone access (a normal browser permission prompt) and
+  records via `MediaRecorder` entirely client-side
+  (`apps/web/src/lib/recorder.ts`). The recording is held only in browser
+  memory as a `Blob`, played back via a local `blob:` URL, and only
+  written to disk if the user clicks "녹음 파일 내보내기". No network
+  request is made with microphone audio at any point — verified the same
+  way as MIDI import, by watching the network panel during development.
 
 ## What is stored, and where
 

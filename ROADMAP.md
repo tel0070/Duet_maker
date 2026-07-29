@@ -52,7 +52,7 @@ item's state changes.
 - [x] Synced main+second playback — "함께 재생" schedules both tracks against the same `startAt`, verified they share it (unit test) and sound together (manual + e2e check)
 - [x] Playback speed — 0.5x/0.75x/1x/1.25x selector, scales note timing
 - [x] Per-track volume — independent sliders for main melody and second vocal
-- [ ] **Not done**: microphone recording
+- [x] Microphone recording — `getUserMedia` + `MediaRecorder` (`apps/web/src/lib/recorder.ts`), record/stop/playback/download; verified with Playwright's fake-device flags (`--use-fake-device-for-media-stream`) so it runs in CI without real hardware. Not synced to guide playback — two independent manual actions (see `docs/DECISIONS.md`).
 - [ ] **Not done**: A-B loop, count-in
 
 ## Phase 4 — Vocal file analysis

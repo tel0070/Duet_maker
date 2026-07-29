@@ -1,6 +1,6 @@
-export function downloadBlob(data: Uint8Array | string, filename: string, mimeType: string): void {
-  const part: BlobPart = typeof data === "string" ? data : new Uint8Array(data);
-  const blob = new Blob([part], { type: mimeType });
+export function downloadBlob(data: Uint8Array | string | Blob, filename: string, mimeType?: string): void {
+  const blob =
+    data instanceof Blob ? data : new Blob([typeof data === "string" ? data : new Uint8Array(data)], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

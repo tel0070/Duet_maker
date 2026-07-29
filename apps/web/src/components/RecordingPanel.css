@@ -1,0 +1,58 @@
+.recording-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.recording-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.recording-row button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.recording-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.recording-row button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.recording-status {
+  font-size: 0.78rem;
+  color: #8a84ab;
+  margin: 0;
+}
+
+.recording-error {
+  font-size: 0.82rem;
+  color: #ff8b8b;
+  margin: 0;
+}
+
+.recording-audio {
+  width: 100%;
+  max-width: 360px;
+}
+
+.recording-hint {
+  font-size: 0.74rem;
+  color: #8a84ab;
+  margin: 0;
+}
