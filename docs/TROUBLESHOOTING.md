@@ -38,15 +38,26 @@ reader into thinking it does something).
 
 ## Playwright e2e test can't find a browser
 
-This dev environment has Chromium preinstalled at
-`/opt/pw-browsers/chromium` (`playwright.config.ts` points there via
-`PLAYWRIGHT_CHROMIUM_PATH` with that as the default) and
-`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is set so `npm install` doesn't try to
-re-fetch it. On a GitHub Actions runner (a different environment), the
-workflow instead runs `npx playwright install --with-deps chromium` — see
-`.github/workflows/pull-request-check.yml`. If you're running locally
-outside this specific dev container and don't have that env var set, run
-`npx playwright install chromium` once.
+`playwright.config.ts` only sets `launchOptions.executablePath` when the
+`PLAYWRIGHT_CHROMIUM_PATH` env var is explicitly set — it is **not**
+defaulted to any path, specifically because an earlier version hardcoded
+a sandbox-only fallback (`/opt/pw-browsers/chromium`) that broke CI, where
+that path doesn't exist (see `docs/DECISIONS.md`).
+
+- **On a GitHub Actions runner**: nothing to do — the workflow runs
+  `npx playwright install --with-deps chromium` first, which installs a
+  browser at Playwright's own default cache location, and `pnpm test:e2e`
+  finds it automatically with no override needed.
+- **In a dev sandbox that preinstalls Chromium at a fixed path** (e.g.
+  `/opt/pw-browsers/chromium`, with `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`
+  set so `npm install` doesn't try to re-fetch it): export
+  `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium` before running
+  `pnpm test:e2e`, since the installed browser's headless-shell revision
+  can mismatch what this project's pinned `@playwright/test` version
+  expects by default otherwise (`chromium.launch()` defaults to
+  `chrome-headless-shell`, a separate download from full Chromium).
+- **Any other local machine**: run `npx playwright install chromium` once
+  if you don't have a Chromium install Playwright already knows about.
 
 ## `generateDuetArrangement` gives different results on what should be a repeat run
 

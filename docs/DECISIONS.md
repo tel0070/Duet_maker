@@ -407,3 +407,16 @@ a real limitation (not a source-separation algorithm) in
   (`candidates.test.ts`), fixed by adding a `preserveRelation` flag instead
   of recomputing everywhere. Documented in `HARMONY_RULES.md` §2 so nobody
   re-introduces the same bug while refactoring.
+- **Defaulting `playwright.config.ts`'s `executablePath` to a dev-sandbox
+  path** (`process.env.PLAYWRIGHT_CHROMIUM_PATH ?? "/opt/pw-browsers/chromium"`)
+  — worked fine in the sandbox where that path exists, but broke every
+  CI run: GitHub's runner has no such path, so every single e2e test
+  failed with `browserType.launch: Failed to launch chromium because
+  executable doesn't exist`. This only surfaced once a real PR actually
+  ran CI — locally, the env var's absence was masked by the same default
+  always resolving to a path that happened to exist. Fixed by making the
+  override strictly opt-in (only set `executablePath` when
+  `PLAYWRIGHT_CHROMIUM_PATH` is explicitly provided); CI installs its own
+  browser via `npx playwright install --with-deps chromium` and needs no
+  override at all. See `docs/TROUBLESHOOTING.md` for the env var a
+  sandboxed dev environment now needs to set explicitly.
