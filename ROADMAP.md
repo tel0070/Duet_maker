@@ -48,10 +48,12 @@ item's state changes.
 
 ## Phase 3 — Guide playback & recording
 
-- [ ] Piano / soft synth / choir pad / humming guide playback
-- [ ] Synced main+second playback
-- [ ] Microphone recording
-- [ ] A-B loop, playback speed, count-in
+- [x] Piano / soft synth / choir pad / humming guide playback — Web Audio oscillators with a per-voice attack/sustain/release envelope (`apps/web/src/lib/audio-engine.ts`); deliberately simple, synthetic timbres, not a claim of natural sound
+- [x] Synced main+second playback — "함께 재생" schedules both tracks against the same `startAt`, verified they share it (unit test) and sound together (manual + e2e check)
+- [x] Playback speed — 0.5x/0.75x/1x/1.25x selector, scales note timing
+- [x] Per-track volume — independent sliders for main melody and second vocal
+- [ ] **Not done**: microphone recording
+- [ ] **Not done**: A-B loop, count-in
 
 ## Phase 4 — Vocal file analysis
 

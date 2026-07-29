@@ -3,6 +3,7 @@ import { ChordTable } from "../components/ChordTable.js";
 import { HarmonyResults } from "../components/HarmonyResults.js";
 import { NoteTable } from "../components/NoteTable.js";
 import { PianoRoll } from "../components/PianoRoll.js";
+import { PlaybackPanel } from "../components/PlaybackPanel.js";
 import { SectionTable } from "../components/SectionTable.js";
 import { StylePicker } from "../components/StylePicker.js";
 import { Toolbar } from "../components/Toolbar.js";
@@ -102,6 +103,11 @@ export function EditorPage() {
         </div>
         {generationError && <p className="editor-error">{generationError}</p>}
         <HarmonyResults arrangement={currentArrangement} />
+      </section>
+
+      <section className="editor-section">
+        <h2>가이드 재생</h2>
+        <PlaybackPanel melody={project.mainMelody} harmony={currentArrangement?.harmonyTrack} bpm={project.bpm} />
       </section>
     </div>
   );

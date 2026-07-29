@@ -9,10 +9,10 @@
 | harmony-core reproducibility/integration | `packages/harmony-core/tests/generate.test.ts` | 9 | same seed → identical output, 4 styles genuinely differ, chord changes propagate, vocal range respected, missing-chord warning fires, every note has a grounded explanation |
 | harmony-core section regeneration | `packages/harmony-core/tests/regenerate-section.test.ts` | 6 | notes outside the target section stay byte-identical, full note coverage, determinism, unknown-section-id error, cross-section isolation (regenerating the verse doesn't touch the chorus), vocal-range continuity into the regenerated section |
 | Scenario matrix | `packages/harmony-core/tests/scenarios.test.ts` | 38 | 9 standard progressions (C-G-Am-F, vi-IV-I-V, ii-V-I, minor ballad, fast chord changes, climbing final chorus, long sustain, fast notes, rest-heavy phrase) × 4 styles, checked for validity (in-range, correct note count) plus two structural spot-checks |
-| Web unit tests | `apps/web/tests/unit/{storage,project-store,EditorPage,LandingPage,Root,piano-roll-geometry}.test.tsx` | 38 | IndexedDB round-trip (via `fake-indexeddb`), the Zustand store's mutating actions, generation flow, and section-regenerate guard/error path, an integration test that drives the actual table UI to add a note/chord and generate a real arrangement, landing page content, hash-based view switching, and the pure pixel↔beat/pitch conversion + drag-to-patch math behind piano-roll editing |
-| Web e2e | `apps/web/tests/e2e/{landing,editor,piano-roll-drag,section-regenerate}.spec.ts` | 12 | Playwright, real Chromium: landing page loads with no console errors; loading a sample project and generating actually produces a result; switching styles actually changes the per-note result table (not just the rounded score); no console errors while using the editor; dragging a note moves it (verified via the note table's actual values, not just visually); resizing via the drag handle changes duration; a plain click selects rather than moving; double-click adds a note; Delete removes the selected note; the section-regenerate button's disabled/enabled state and that clicking it doesn't error |
+| Web unit tests | `apps/web/tests/unit/{storage,project-store,EditorPage,LandingPage,Root,piano-roll-geometry,audio-engine}.test.tsx` | 50 | IndexedDB round-trip (via `fake-indexeddb`), the Zustand store's mutating actions, generation flow, and section-regenerate guard/error path, an integration test that drives the actual table UI to add a note/chord and generate a real arrangement, landing page content, hash-based view switching, the pure pixel↔beat/pitch conversion + drag-to-patch math behind piano-roll editing, and guide-playback scheduling (frequency/timing/gain math, verified against a fake `AudioContext`) |
+| Web e2e | `apps/web/tests/e2e/{landing,editor,piano-roll-drag,section-regenerate,playback}.spec.ts` | 16 | Playwright, real Chromium: landing page loads with no console errors; loading a sample project and generating actually produces a result; switching styles actually changes the per-note result table (not just the rounded score); no console errors while using the editor; dragging a note moves it (verified via the note table's actual values, not just visually); resizing via the drag handle changes duration; a plain click selects rather than moving; double-click adds a note; Delete removes the selected note; the section-regenerate button's disabled/enabled state and that clicking it doesn't error; guide playback status text during play/stop/both-tracks and genuine auto-stop once a short note's real playback time elapses |
 
-Total: 171 tests, all passing as of this writing. Run `pnpm test` for unit
+Total: 187 tests, all passing as of this writing. Run `pnpm test` for unit
 tests, `pnpm test:e2e` for the Playwright suite, or `pnpm validate` for the
 full lint+typecheck+test+build gate (unit tests only — run `test:e2e`
 separately).
@@ -51,6 +51,11 @@ Musical quality is a human-evaluation concern (see below), not something
 - **Cross-browser e2e** — Playwright is configured for Chromium only so
   far (matches what's preinstalled in this dev environment); Firefox/
   WebKit projects aren't configured in `playwright.config.ts`.
+- **Microphone recording tests** — the feature doesn't exist yet. When it
+  does, note that testing it needs Playwright launched with
+  `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` (or
+  `context.grantPermissions`) — plan that into the feature's tests from
+  the start rather than retrofitting.
 
 ## Adding tests for new harmony-core behavior
 

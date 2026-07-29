@@ -1,0 +1,58 @@
+.playback-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.playback-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.playback-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.78rem;
+  color: #b9b3dd;
+}
+
+.playback-row select {
+  background: #1b1930;
+  color: #f2f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.playback-row button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.playback-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.playback-row button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.playback-status {
+  font-size: 0.78rem;
+  color: #8a84ab;
+  margin: 0;
+}

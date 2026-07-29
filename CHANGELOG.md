@@ -7,6 +7,11 @@ need an entry.
 
 ### Added
 
+- **Guide playback.** The editor can now play the main melody, the
+  generated second vocal, or both together (in sync), through one of four
+  simple guide voices (piano/soft synth/choir pad/humming), with
+  independent volume per track and 0.5x-1.25x speed control. This is
+  synthetic guide audio for rehearsal, not a natural-voice synthesizer.
 - **Section-level regeneration.** Each row in the editor's section table
   now has a "재생성" button that regenerates only that section's harmony,
   keeping every other section's notes exactly as they were. Disabled until
@@ -39,6 +44,8 @@ need an entry.
 
 ### Known limitations
 
+- No microphone recording, A-B loop, or count-in yet (Phase 3 is
+  playback-only so far).
 - Chord/section editing is table-based; only melody notes are
   drag-editable on the piano roll.
 - Section regeneration voice-leads correctly *into* the regenerated

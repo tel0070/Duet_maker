@@ -36,9 +36,9 @@ output before trusting it, and update it the moment it goes stale.
 |---|---|
 | `packages/shared-types` | Done. Core data model + zod schemas + provider interfaces + project-file schema/migration. 20 tests passing. |
 | `packages/harmony-core` | Done (Phase 1 MVP). Candidate generation, 13-component scoring, beam-search phrase planner, 4 distinct style strategies, seeded RNG, MIDI export + import, section-scoped partial regeneration (`regenerateSection`). 101 tests passing. Wired into `apps/web`. |
-| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, IndexedDB autosave — all real, all covered by Playwright e2e tests and manually verified in a real browser (see `HANDOFF.md`). **Not done**: multi-project management, dragging chords/sections (only melody notes are drag-editable), two-sided continuity for section regeneration. |
+| `apps/web` | Landing page + a working editor (Phase 2, functional but not feature-complete) + guide playback (Phase 3, partial). MIDI import, chord/section/note tables, drag/resize/add/delete notes directly on the piano roll, style picker, generate + per-section regenerate actions, harmony results table, MIDI/JSON export, IndexedDB autosave, Web Audio guide playback (4 voices, per-track volume, speed control, synced main+harmony) — all real, all covered by Playwright e2e tests and manually verified in a real browser (see `HANDOFF.md`). **Not done**: multi-project management, dragging chords/sections, two-sided continuity for section regeneration, microphone recording, A-B loop, count-in. |
 | `local-engine` | Not started (Phase 5). See `local-engine/README.md`. |
-| `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; no audio playback code exists yet to justify `audio-ui`). |
+| `packages/music-domain`, `packages/audio-ui` | Deliberately not created — see `docs/DECISIONS.md` for why (harmony-core's music theory lives in that package directly; the Phase 3 playback engine is small enough to live in `apps/web/src/lib/audio-engine.ts` rather than a separate `audio-ui` package — revisit if audio code grows enough to be reused outside `apps/web`). |
 | CI (`.github/workflows/`) | `pull-request-check.yml` and `deploy-production.yml` are written and were validated locally (lint/typecheck/test/build/e2e all pass). **Whether they have actually run green on GitHub, and whether GitHub Pages is actually serving the site, has not been confirmed as of this commit — check the Actions tab and the live URL before claiming deployment works.** |
 
 ## 3. Overall structure
@@ -130,15 +130,21 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
 - `apps/web/tests/unit/` — storage (IndexedDB, via `fake-indexeddb`),
   Zustand store behavior (including the section-regenerate action's
   guard/error path), landing page, hash routing, piano-roll coordinate
-  math (pure functions), and an integration-style editor test that adds a
-  note/chord through the actual table UI and generates a real arrangement.
+  math (pure functions), audio-engine scheduling logic (via a fake
+  `AudioContext` with spied nodes — verifies frequencies/timing/gain
+  without needing real audio hardware), and an integration-style editor
+  test that adds a note/chord through the actual table UI and generates a
+  real arrangement.
 - `apps/web/tests/e2e/` — Playwright specs covering the landing page, a
   real end-to-end editor flow (load sample → generate → verify the result
   table, switch style → verify the result actually changed, no console
   errors during use), piano-roll drag/resize/add/delete (these can only
   really be verified with a real layout engine — jsdom doesn't lay out
   SVG, so the pointer-event wiring itself isn't covered by unit tests),
-  and the section-regenerate button's enabled/disabled state and wiring.
+  the section-regenerate button's enabled/disabled state and wiring, and
+  guide playback (play/stop status text, both-tracks-together status,
+  auto-stop once a short note actually finishes — this one genuinely
+  waits out real Web Audio scheduling in Chromium, not a mock).
 - There is no separate "human evaluation" tooling yet (spec calls for a
   1-5 rating form); not built, not claimed as built.
 
@@ -165,15 +171,19 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
    Pages is actually serving the built site at the real URL. As of this
    commit this has been validated locally but not confirmed on GitHub
    infrastructure — do not claim "온라인 공개 완료" until you have checked.
-2. Phase 3 (guide audio playback + recording) — now unblocked, since
-   Phase 2's editor exists and there's something to play against.
-3. Multi-project management (recent projects list, per-project delete) if
+2. **Microphone recording** (rest of Phase 3) — `navigator.mediaDevices
+   .getUserMedia` + `MediaRecorder`, record while the guide plays, export
+   the take as a downloadable audio file. Not started; guide playback
+   (done) was a prerequisite for this being useful.
+3. A-B loop and count-in for playback (rest of Phase 3) — smaller than
+   recording, natural next addition to `audio-engine.ts`/`PlaybackPanel.tsx`.
+4. Multi-project management (recent projects list, per-project delete) if
    a single autosave slot proves limiting in practice.
-4. Drag/resize support for chords and sections on the piano roll (currently
+5. Drag/resize support for chords and sections on the piano roll (currently
    only melody notes are drag-editable there — chords/sections are
    table-only). Lower priority than the above since the tables already
    cover the same edits.
-5. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
+6. Two-sided continuity for `regenerateSection` (see §9) — optimizing the
    seam into the locked note *after* the regenerated section, not just the
    one before it — if the current one-directional version proves
    noticeable in practice.
@@ -211,6 +221,11 @@ See `docs/TEST_STRATEGY.md` for the full picture. Summary:
   locked note *after* it is not specially optimized (that note's pitch was
   already fixed before the regeneration ran). See
   `packages/harmony-core/src/generate.ts`'s `regenerateSection` docstring.
+- Guide playback (`apps/web/src/lib/audio-engine.ts`) uses plain Web Audio
+  oscillators (triangle/sawtooth/sine waves with an ADSR-ish envelope per
+  voice) — genuinely 4 distinct, listenable timbres, but explicitly not a
+  claim of realistic piano/synth/choir/voice sound. No microphone
+  recording, A-B loop, or count-in exist yet (tracked in §8).
 - The editor has no Web Worker — `generateDuetArrangement` runs on the main
   thread. Fine at the note counts in the demo projects (tens of notes,
   sub-100ms); revisit if real user songs are long enough to cause visible

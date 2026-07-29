@@ -117,6 +117,43 @@ A click vs. drag is disambiguated by total pointer movement
 (`DRAG_THRESHOLD_PX = 3`): under that, releasing selects the note instead
 of committing a (likely accidental) move.
 
+## Phase 3 guide playback: plain Web Audio oscillators, no audio library
+
+`apps/web/src/lib/audio-engine.ts` uses `OscillatorNode` + `GainNode`
+directly (no Tone.js or similar). Four guide voices (piano/soft synth/
+choir pad/humming) are each just a waveform type
+(triangle/sawtooth/sine) plus an attack/sustain/release envelope on the
+gain — genuinely four different, listenable sounds, but explicitly not a
+claim of realistic instrument or voice timbre. A dependency like Tone.js
+would add real value once (if) sample-based instruments or effects chains
+are needed; for four synthesized tones it would mostly add a library to
+track licenses/updates for. Revisit if guide-audio quality becomes a
+priority the current oscillators can't meet.
+
+Split the same way as the piano-roll drag math: pure functions
+(`midiToFrequency`, `beatsToSeconds`, `notesToScheduled`/
+`harmonyToScheduled`) separate from `schedulePlayback`, which takes a real
+`AudioContext` but is tested by passing a hand-built fake one (plain
+objects + `vi.fn()` spies standing in for `createOscillator`/
+`createGain`) — this lets the scheduling *logic* (right frequency, right
+start time, right gain envelope, respects `playbackRate`) be asserted in
+milliseconds under Vitest, with real-browser Playwright tests reserved for
+what actually needs a real `AudioContext` (does it produce sound at all,
+does the UI status update, does stop actually silence it).
+
+Melody+harmony sync (the "함께 재생" button) works by computing
+`ctx.currentTime + 0.05` once and passing it as `startAt` to both
+`schedulePlayback` calls, rather than letting each call default it
+independently (which would put them a few milliseconds apart — probably
+inaudible, but needlessly imprecise for something explicitly advertised
+as "synced playback").
+
+Microphone recording was not attempted in the same pass as playback: it
+needs `getUserMedia`/`MediaRecorder`, browser permission prompts, and a
+different Playwright testing setup (fake-media-device launch flags) that
+wasn't worth rushing into the same change as a first playback
+implementation. Tracked as the next Phase 3 task in `AGENTS.md` §8.
+
 ## Section regeneration: lock notes via the existing beam search, not a second algorithm
 
 `regenerateSection` doesn't implement a separate "partial" search
