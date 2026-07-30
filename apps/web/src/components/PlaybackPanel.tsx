@@ -4,13 +4,16 @@ import {
   beatsToSeconds,
   harmonyToScheduled,
   notesToScheduled,
+  renderMixOffline,
   scheduleCountIn,
   schedulePlayback,
   sliceScheduledToRegion,
+  totalDurationSeconds,
   type GuideVoice,
   type PlaybackHandle,
-  type ScheduledNote,
 } from "../lib/audio-engine.js";
+import { downloadBlob } from "../lib/download.js";
+import { encodeAudioBufferToMp3 } from "../lib/mp3-export.js";
 import "./PlaybackPanel.css";
 
 const VOICE_LABELS: Record<GuideVoice, string> = {
@@ -29,11 +32,6 @@ const TRACK_LABELS: Record<TrackKind, string> = {
   harmony: "두 번째 보컬",
   both: "메인 멜로디 + 두 번째 보컬",
 };
-
-function totalDurationSeconds(notes: ScheduledNote[], rate: number): number {
-  if (notes.length === 0) return 0;
-  return Math.max(...notes.map((n) => n.startTime + n.duration)) / rate;
-}
 
 function totalMelodyBeats(notes: NoteEvent[]): number {
   if (notes.length === 0) return 0;
@@ -179,6 +177,32 @@ export const PlaybackPanel = forwardRef<PlaybackPanelHandle, PlaybackPanelProps>
     stop: stopAll,
   }));
 
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function handleExportMp3() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const rendered = await renderMixOffline({
+        melody,
+        harmony,
+        bpm,
+        includeMelodyGuide: true,
+        melodyGain: melodyVolume,
+        melodyVoice: voice,
+        harmonyGain: harmonyVolume,
+        harmonyVoice: voice,
+      });
+      const mp3Bytes = encodeAudioBufferToMp3(rendered);
+      downloadBlob(mp3Bytes, "duet-guide-mix.mp3", "audio/mpeg");
+    } catch (caught) {
+      setExportError(caught instanceof Error ? caught.message : "MP3 내보내기에 실패했습니다.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="playback-panel">
       <div className="playback-row">
@@ -275,7 +299,12 @@ export const PlaybackPanel = forwardRef<PlaybackPanelHandle, PlaybackPanelProps>
         <button type="button" onClick={stopAll} disabled={!playingLabel}>
           정지
         </button>
+        <button type="button" onClick={() => void handleExportMp3()} disabled={!hasMelody || exporting}>
+          {exporting ? "MP3 내보내는 중..." : "MP3로 내보내기"}
+        </button>
       </div>
+
+      {exportError && <p className="playback-error">{exportError}</p>}
 
       <p className="playback-status" aria-live="polite">
         {playingLabel ? `재생 중: ${playingLabel}` : "재생 중인 트랙이 없습니다."}

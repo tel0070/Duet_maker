@@ -68,11 +68,11 @@ item's state changes.
 
 ## Phase 5 — Full mix analysis (optional local engine)
 
-- [ ] `local-engine` FastAPI service (currently just a status README, no code)
-- [ ] Stem separation
-- [ ] Chord/key/section detection from a full mix
-- [ ] Long-file handling
-- [ ] Wired to the web app via the existing provider interfaces
+- [x] `local-engine` FastAPI service (Demucs + basic-pitch + librosa, localhost-only, job-polling API — see `local-engine/README.md`)
+- [x] Stem separation (Demucs `htdemucs`, two-stems)
+- [x] Chord/key/section detection from a full mix (librosa beat/chroma + Krumhansl-Schmuckler + chord templates + self-similarity segmentation)
+- [x] Wired to the web app via the existing provider interfaces (`apps/web/src/lib/local-engine-client.ts`, `AudioUploadPanel`, `AudioMixPlayer`)
+- [ ] Long-file handling — untested on a real multi-minute song in this dev sandbox (no length cap exists, but runtime on a full song was never measured here; see local-engine/README.md's "Verified in development" note)
 
 ## Phase 6 — Advanced duet generation
 

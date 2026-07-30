@@ -64,3 +64,9 @@
   color: #8a84ab;
   margin: 0;
 }
+
+.playback-error {
+  color: #ff8b8b;
+  font-size: 0.78rem;
+  margin: 0;
+}

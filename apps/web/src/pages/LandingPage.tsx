@@ -34,8 +34,10 @@ const FEATURES: FeatureStatus[] = [
   },
   {
     name: "음원 업로드·자동 분석",
-    status: "unsupported",
-    note: "아직 개발 중입니다 (Phase 4 이후). 현재는 MIDI/코드 진행 직접 입력만 지원합니다.",
+    status: "requiresLocalEngine",
+    note:
+      "mp3/wav 등을 업로드하면 로컬 엔진이 보컬을 분리하고 멜로디·코드·구간·키·BPM을 자동 분석해 편집기에 채워 넣습니다. " +
+      "별도 로컬 Python 서버(local-engine)를 먼저 실행해야 하며, 분석 결과는 추정치이므로 필요하면 직접 수정하세요.",
   },
 ];
 

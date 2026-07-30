@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { AudioMixPlayer } from "../components/AudioMixPlayer.js";
+import { AudioUploadPanel } from "../components/AudioUploadPanel.js";
 import { ChordTable } from "../components/ChordTable.js";
 import { HarmonyResults } from "../components/HarmonyResults.js";
 import { NoteTable } from "../components/NoteTable.js";
@@ -17,6 +19,7 @@ export function EditorPage() {
   const setName = useProjectStore((s) => s.setName);
   const setKey = useProjectStore((s) => s.setKey);
   const setBpm = useProjectStore((s) => s.setBpm);
+  const importAudioAnalysis = useProjectStore((s) => s.importAudioAnalysis);
   const generate = useProjectStore((s) => s.generate);
   const reroll = useProjectStore((s) => s.reroll);
   const generationError = useProjectStore((s) => s.generationError);
@@ -31,6 +34,7 @@ export function EditorPage() {
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [syncStarting, setSyncStarting] = useState(false);
+  const [stems, setStems] = useState<{ vocalStemBlob: Blob; instrumentalStemBlob: Blob } | null>(null);
 
   const playbackRef = useRef<PlaybackPanelHandle>(null);
   const recordingRef = useRef<RecordingPanelHandle>(null);
@@ -75,6 +79,11 @@ export function EditorPage() {
       <section className="editor-section">
         <h2>최근 프로젝트</h2>
         <ProjectList />
+      </section>
+
+      <section className="editor-section">
+        <h2>오디오 업로드 (로컬 엔진, 선택 사항)</h2>
+        <AudioUploadPanel onAnalyzed={importAudioAnalysis} onStemsReady={setStems} />
       </section>
 
       <section className="editor-section">
@@ -153,6 +162,19 @@ export function EditorPage() {
           bpm={project.bpm}
         />
       </section>
+
+      {stems && (
+        <section className="editor-section">
+          <h2>업로드한 오디오와 화음 함께 듣기</h2>
+          <AudioMixPlayer
+            vocalStemBlob={stems.vocalStemBlob}
+            instrumentalStemBlob={stems.instrumentalStemBlob}
+            melody={project.mainMelody}
+            harmony={currentArrangement?.harmonyTrack}
+            bpm={project.bpm}
+          />
+        </section>
+      )}
 
       <section className="editor-section">
         <h2>녹음</h2>

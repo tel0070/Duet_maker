@@ -1,0 +1,29 @@
+.audio-mix-player {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audio-mix-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.audio-mix-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.audio-mix-error {
+  color: #ff8b8b;
+  font-size: 0.82rem;
+}
+
+.audio-mix-hint {
+  color: rgba(242, 240, 255, 0.65);
+  font-size: 0.78rem;
+}

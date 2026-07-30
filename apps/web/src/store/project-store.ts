@@ -1,6 +1,7 @@
 import {
   DEFAULT_VOCAL_RANGE,
   type ChordEvent,
+  type ConfidenceScored,
   type DuetArrangement,
   type DuetStyle,
   type NoteEvent,
@@ -71,6 +72,13 @@ export interface ProjectState {
   removeNote: (id: string) => void;
 
   importMelodyFile: (file: File) => Promise<void>;
+  importAudioAnalysis: (analysis: {
+    key: string;
+    bpm: number;
+    melody: Array<ConfidenceScored<NoteEvent>>;
+    chords: Array<ConfidenceScored<ChordEvent>>;
+    sections: Array<ConfidenceScored<SongSection>>;
+  }) => void;
   generate: () => void;
   reroll: () => void;
   regenerateSection: (sectionId: string) => void;
@@ -214,6 +222,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     } catch (error) {
       set({ importError: error instanceof Error ? error.message : "MIDI 파일을 읽을 수 없습니다." });
     }
+  },
+
+  importAudioAnalysis: (analysis) => {
+    // Replaces melody/chords/sections/key/bpm wholesale — this is the
+    // audio-upload equivalent of importMelodyFile, just covering every
+    // field local-engine can derive at once instead of only the melody.
+    const project = touch({
+      ...get().project,
+      key: analysis.key,
+      bpm: analysis.bpm,
+      mainMelody: analysis.melody,
+      chords: analysis.chords,
+      sections: analysis.sections,
+    });
+    set({ project, generationError: null, importError: null, seed: 1 });
+    queueAutosave(project);
   },
 
   generate: () => {
