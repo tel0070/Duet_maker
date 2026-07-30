@@ -2,7 +2,11 @@
 
 ## Last updated
 
-2026-07-29 (merged the entire project to `main` via PR #1, fixed 3 CI-config bugs found only by running against real GitHub infrastructure, deploy still blocked on one Settings toggle — see "Known failures" below)
+2026-07-30 (**the site is live** — GitHub Pages deploy succeeded after the
+human enabled Settings → Pages → Source: GitHub Actions; both `build` and
+`deploy` jobs of `Deploy Production` run 30463070615 attempt 2 are fully
+green — see "Known failures / unverified claims" for exactly what was and
+wasn't independently re-verified)
 
 ## Current phase
 
@@ -14,10 +18,11 @@ remaining known limitation tracked in `AGENTS.md` (two-sided
 section-regeneration continuity) is now also fixed.
 
 **`main` now has the real project** (previously just a placeholder
-README — see "Recent architectural decisions" below). CI runs green on
-GitHub's actual infrastructure as of this commit. The GitHub Pages
-deploy itself is still blocked on one repo Settings toggle a human needs
-to do — see "Known failures / unverified claims".
+README — see "Recent architectural decisions" below), CI runs green on
+GitHub's actual infrastructure, and **the first production deploy
+succeeded**: https://tel0070.github.io/Duet_maker/ (see "Known failures /
+unverified claims" for the one verification step this session's sandbox
+could not itself perform).
 
 ## Working features
 
@@ -73,21 +78,35 @@ None — every item originally scoped for Phase 2 and Phase 3 is built.
 
 ## Known failures / unverified claims
 
-- **GitHub Pages deploy is still blocked — verified, not assumed.** The
-  repo is now public (human action, confirmed via the GitHub API:
-  `curl https://api.github.com/repos/tel0070/Duet_maker` → `"private":
-  false`), and the `Deploy Production` workflow's `build` job now runs
-  green (lint/typecheck/test/build/e2e all pass on a real GitHub Actions
-  runner). The `deploy` job itself fails with `HttpError: Not Found` /
-  `Failed to create deployment (status: 404) ... Ensure GitHub Pages has
-  been enabled: https://github.com/tel0070/Duet_maker/settings/pages`.
-  **This needs one more human action**: open that Settings → Pages page
-  and set Source to "GitHub Actions" (a one-time toggle — see ADR 0001).
-  No code or workflow change can do this; there is no API tool exposed in
-  this session with repo-administration scope to do it either. Once
-  toggled, the next push to `main` (or a manual `workflow_dispatch`
-  re-run of the existing failed run) should deploy successfully — the
-  `build` job already proved the pipeline itself works end-to-end.
+- **GitHub Pages deploy now succeeds — verified via GitHub's own systems,
+  with one caveat below.** The human enabled Settings → Pages → Source:
+  GitHub Actions, then the previously-failed `Deploy Production` run
+  (id `30463070615`) was re-run without any code change. Attempt 2 of
+  that run is `status: completed`, `conclusion: success`; both jobs show
+  every step green:
+  - `build` (job `90738716767`): checkout, pnpm/node setup, install,
+    lint, typecheck, unit tests, build, Playwright install, e2e smoke
+    test, `upload-pages-artifact@v3` — all `success`.
+  - `deploy` (job `90738977851`): `actions/deploy-pages@v4` — `success`.
+    Its own log states `Reported success!` and
+    `Evaluated environment url: https://tel0070.github.io/Duet_maker/`
+    verbatim — this URL string comes directly from GitHub's deploy
+    action, not something inferred or guessed on this end.
+  - **Caveat, stated plainly**: this sandbox's own outbound network
+    proxy blocks `CONNECT` to `tel0070.github.io:443` at the policy
+    level (`curl -I` returns a 36-byte `403 Forbidden` that is the proxy
+    talking, not the real site — confirmed via
+    `$HTTPS_PROXY/__agentproxy/status`'s `recentRelayFailures`:
+    `"kind": "connect_rejected", "detail": "gateway answered 403 to
+    CONNECT (policy denial or upstream failure)"`). The GitHub Pages API
+    path (`/repos/.../pages`) is also outside this proxy's allowed path
+    list. So the live page was **not** independently browser/curl-loaded
+    from *this* environment — the "success" claim rests entirely on
+    GitHub's own job status and log content, which is a legitimate and
+    strong signal (it's the same system that actually served the
+    deploy), but is not the same as a first-party fetch of the URL from
+    here. **A human visiting https://tel0070.github.io/Duet_maker/ in an
+    ordinary browser is the one remaining independent check.**
 - `delayedEntry`/`repeatPhrase` arrangement instructions are approximated
   via scoring bias + text only (Phase 1 limitation, unchanged).
 - Guide playback timbres are genuinely 4 distinct oscillator-based sounds,
@@ -191,12 +210,11 @@ None — every item originally scoped for Phase 2 and Phase 3 is built.
 
 Pick one:
 
-1. **Enable GitHub Pages** at
-   https://github.com/tel0070/Duet_maker/settings/pages (Source: GitHub
-   Actions) — the one remaining human action blocking the first real
-   deploy. Confirmed via an actual failed run that this is the *only*
-   remaining blocker (see "Known failures" above) — the build pipeline
-   itself is proven working end-to-end on real CI.
+1. **Human sanity check**: open https://tel0070.github.io/Duet_maker/ in
+   an ordinary browser and confirm it loads — the one verification step
+   this session's own sandboxed environment could not perform itself (see
+   "Known failures" above). Everything else about the deploy is already
+   confirmed via GitHub's own job logs.
 2. Phase 2's and Phase 3's checklists, plus two-sided section-regeneration
    continuity, are all now fully done. The next phase-scale work is Phase 4
    (vocal file analysis / browser-side pitch extraction) — read
@@ -271,8 +289,8 @@ commits.)
   and un-normalized browser-default recording good enough, or would either
   benefit from more work even though the Phase 3 checklist is complete?
   Judgment call.
-- **Enable GitHub Pages** — the repo is now public (done); one Settings
-  toggle remains at https://github.com/tel0070/Duet_maker/settings/pages
-  (Source → GitHub Actions) before the already-green build pipeline can
-  actually deploy. See "Known failures" above and
-  `docs/adr/0001-hosting-choice.md`.
+- **Confirm the live site in a real browser** — GitHub's own deploy job
+  reports success at https://tel0070.github.io/Duet_maker/, but this
+  session's sandbox couldn't independently fetch that URL itself (proxy
+  policy — see "Known failures" above). A quick human visit closes the
+  loop. See also `docs/adr/0001-hosting-choice.md`.
