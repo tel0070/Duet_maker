@@ -1,0 +1,54 @@
+name: Build local-engine Windows Executable
+
+# Manual only (workflow_dispatch): this bundles Demucs/basic-pitch/torch/
+# tensorflow into one .exe via PyInstaller, which is slow and occasionally
+# flaky, so it isn't run on every push — trigger it explicitly when
+# local-engine's dependencies or app_entry.py actually change. Must run on
+# windows-latest: a Windows .exe cannot be cross-compiled from Linux/macOS.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: local-engine
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU-only PyTorch first
+        # Avoids pulling a multi-GB CUDA build as a side effect of demucs's
+        # torch dependency — see local-engine/README.md's install-size note.
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install local-engine + PyInstaller
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller==6.11.1 pyinstaller-hooks-contrib==2024.10.21
+
+      - name: Build standalone executable
+        run: >
+          pyinstaller --onefile --name duet-maker-local-engine
+          --collect-all torch
+          --collect-all torchaudio
+          --collect-all demucs
+          --collect-all basic_pitch
+          --collect-all librosa
+          --collect-all resampy
+          app_entry.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: duet-maker-local-engine-windows
+          path: local-engine/dist/duet-maker-local-engine.exe
+          retention-days: 14
