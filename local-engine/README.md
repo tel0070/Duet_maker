@@ -87,9 +87,13 @@ download itself fails outside this dev sandbox.
 
 ## Known limitations
 
-- Chord detection only distinguishes major/minor triads (no 7ths,
-  sus-chords, etc.) — `packages/shared-types`'s `ChordQuality` enum
-  supports more, this detector doesn't populate them.
+- Chord detection covers every `ChordQuality` in `packages/shared-types`
+  (maj/min/dim/aug/maj7/min7/dom7/m7b5/dim7/sus2/sus4/five) via template
+  matching against 144 root×quality combinations — but it's still simple
+  cosine-similarity template matching, not a trained model, so genuinely
+  ambiguous or noisy real-audio frames (e.g. a 7th's energy partly masked
+  by vocal harmonics) will sometimes get simplified to the nearest triad.
+  No slash chords (`bass`) or extensions beyond a single 7th are detected.
 - Section *type* labeling (verse vs. chorus) is a same-song relative-energy
   heuristic, not a trained classifier — expect to rename sections by hand
   sometimes.

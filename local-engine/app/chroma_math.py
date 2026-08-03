@@ -47,30 +47,52 @@ def estimate_key(mean_chroma: np.ndarray) -> tuple[str, float]:
     return best_label, confidence
 
 
+# Semitone offsets from the root + a weight per tone (root always 1.0,
+# the color tone(s) 0.8, the fifth 0.6, a 7th/extension tone 0.5 — lower
+# because a real recording's overtones make a genuine 7th harder to
+# distinguish from noise than the triad tones are). Quality names match
+# `chordQualitySchema` in packages/shared-types/src/chord-event.ts exactly,
+# so `match_chord`'s output can be dropped straight into a ChordEvent.
+_CHORD_INTERVALS: dict[str, list[tuple[int, float]]] = {
+    "maj": [(0, 1.0), (4, 0.8), (7, 0.6)],
+    "min": [(0, 1.0), (3, 0.8), (7, 0.6)],
+    "dim": [(0, 1.0), (3, 0.8), (6, 0.6)],
+    "aug": [(0, 1.0), (4, 0.8), (8, 0.6)],
+    "maj7": [(0, 1.0), (4, 0.8), (7, 0.6), (11, 0.5)],
+    "min7": [(0, 1.0), (3, 0.8), (7, 0.6), (10, 0.5)],
+    "dom7": [(0, 1.0), (4, 0.8), (7, 0.6), (10, 0.5)],
+    "m7b5": [(0, 1.0), (3, 0.8), (6, 0.6), (10, 0.5)],
+    "dim7": [(0, 1.0), (3, 0.8), (6, 0.6), (9, 0.5)],
+    "sus2": [(0, 1.0), (2, 0.8), (7, 0.6)],
+    "sus4": [(0, 1.0), (5, 0.8), (7, 0.6)],
+    "five": [(0, 1.0), (7, 0.6)],
+}
+
+
 def _chord_template(root: int, quality: str) -> np.ndarray:
-    template = np.zeros(12)
-    template[root] = 1.0
-    if quality == "maj":
-        template[(root + 4) % 12] = 0.8
-        template[(root + 7) % 12] = 0.6
-    elif quality == "min":
-        template[(root + 3) % 12] = 0.8
-        template[(root + 7) % 12] = 0.6
-    else:
+    intervals = _CHORD_INTERVALS.get(quality)
+    if intervals is None:
         raise ValueError(f"지원하지 않는 코드 성질입니다: {quality}")
+    template = np.zeros(12)
+    for interval, weight in intervals:
+        template[(root + interval) % 12] = weight
     return template
 
 
 _CHORD_TEMPLATES: list[tuple[int, str, np.ndarray]] = [
-    (root, quality, _chord_template(root, quality)) for root in range(12) for quality in ("maj", "min")
+    (root, quality, _chord_template(root, quality)) for root in range(12) for quality in _CHORD_INTERVALS
 ]
 
 
 def match_chord(chroma_vec: np.ndarray) -> tuple[str, str, float]:
     """`chroma_vec`: one 12-bin chroma vector (bin 0 = C), e.g. averaged over
-    one beat. Returns (root name, "maj"|"min", confidence) — confidence is
-    the winning template's cosine similarity minus the runner-up's, so a
-    clearly-dominant match scores near 1 and an ambiguous frame scores near 0.
+    one beat. Returns (root name, quality, confidence) — quality is one of
+    `_CHORD_INTERVALS`'s keys (12 roots x 12 qualities = 144 candidate
+    templates). Confidence is the winning template's cosine similarity
+    minus the runner-up's, so a clearly-dominant match scores near 1 and an
+    ambiguous frame (more likely now that closely-related templates like
+    `maj` vs. `maj7` differ by only one weak tone) scores near 0 — that's
+    the classifier being honestly uncertain, not a bug.
     """
     if chroma_vec.shape != (12,):
         raise ValueError(f"chroma_vec는 12개 원소여야 합니다: shape={chroma_vec.shape}")

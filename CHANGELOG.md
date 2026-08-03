@@ -7,6 +7,10 @@ need an entry.
 
 ### Added
 
+- **Chord detection now recognizes 7ths, sus2/sus4, dim/aug, and power
+  chords**, not just major/minor triads — `local-engine`'s chord
+  detector matches against all 12 `ChordQuality` values (144
+  root×quality templates).
 - **Audio upload → auto-analysis (Phase 5, local-engine).** A new optional
   local Python service (`local-engine/`, see its README) can separate an
   uploaded song's vocal from its instrumental, transcribe the vocal to a

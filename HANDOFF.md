@@ -110,8 +110,13 @@ pushed through CI** — see "Next recommended task".
   same-song relative-RMS-energy heuristic, not a trained classifier —
   boundaries are a real signal-processing result, the label often needs
   manual correction. See `local-engine/README.md`.
-- **Chord detection from audio** only distinguishes major/minor triads —
-  no 7ths, sus-chords, etc., even though `ChordQuality` supports more.
+- **Chord detection from audio** now covers all 12 `ChordQuality` values
+  (7ths, sus2/sus4, dim/aug, power chords — 144 root×quality templates,
+  extended from major/minor-only in a follow-up commit this session), but
+  it's still plain cosine-similarity template matching, not a trained
+  model — no slash chords, no extensions beyond a single 7th, and a real
+  recording's messier harmonics will sometimes still simplify to the
+  nearest triad.
 
 Every item originally scoped for Phase 2 and Phase 3 is built (unchanged
 from before this session).

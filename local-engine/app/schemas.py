@@ -11,7 +11,9 @@ from typing import Literal
 from pydantic import BaseModel
 
 PitchClass = Literal["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-ChordQuality = Literal["maj", "min"]
+ChordQuality = Literal[
+    "maj", "min", "dim", "aug", "maj7", "min7", "dom7", "m7b5", "dim7", "sus2", "sus4", "five"
+]
 SectionType = Literal[
     "intro", "verse", "preChorus", "chorus", "postChorus", "bridge", "breakdown", "finalChorus", "outro", "custom"
 ]
