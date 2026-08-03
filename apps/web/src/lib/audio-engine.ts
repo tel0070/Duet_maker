@@ -28,6 +28,12 @@ export function notesToScheduled(notes: NoteEvent[], bpm: number): ScheduledNote
   }));
 }
 
+/** Seconds from playback start to the end of the last-finishing note, at the given playback rate. */
+export function totalDurationSeconds(notes: ScheduledNote[], rate: number): number {
+  if (notes.length === 0) return 0;
+  return Math.max(...notes.map((n) => n.startTime + n.duration)) / rate;
+}
+
 /**
  * Clips notes to `[startSeconds, endSeconds)`, cutting off any part outside
  * the region and rebasing `startTime` to be relative to `startSeconds` — so
@@ -114,7 +120,7 @@ export interface PlaybackHandle {
  * sounding.
  */
 export function schedulePlayback(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   notes: ScheduledNote[],
   voice: GuideVoice,
   options: SchedulePlaybackOptions = {},
@@ -167,6 +173,102 @@ export function schedulePlayback(
       }
     },
   };
+}
+
+/** Decodes a recorded/separated stem Blob (wav/mp3/etc.) into a playable buffer. */
+export async function decodeAudioBlob(ctx: AudioContext, blob: Blob): Promise<AudioBuffer> {
+  const arrayBuffer = await blob.arrayBuffer();
+  return ctx.decodeAudioData(arrayBuffer);
+}
+
+export interface PlayBufferOptions {
+  /** Linear gain, 0-1. Default 1. */
+  gain?: number;
+  /** Same `ctx.currentTime`-relative convention as `SchedulePlaybackOptions.startAt`. */
+  startAt?: number;
+}
+
+/** Plays a whole decoded buffer (a vocal/instrumental stem) once, starting at `startAt`. */
+export function playAudioBuffer(ctx: BaseAudioContext, buffer: AudioBuffer, options: PlayBufferOptions = {}): PlaybackHandle {
+  const startAt = options.startAt ?? ctx.currentTime + 0.05;
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const gainNode = ctx.createGain();
+  gainNode.gain.setValueAtTime(options.gain ?? 1, startAt);
+
+  source.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  source.start(startAt);
+
+  return {
+    stop: () => {
+      try {
+        source.stop();
+      } catch {
+        // Already stopped (its scheduled end time already passed) — fine.
+      }
+    },
+  };
+}
+
+export interface MixRenderOptions {
+  melody: NoteEvent[];
+  harmony?: HarmonyNote[];
+  bpm: number;
+  /** A real recorded/separated vocal stem. Mutually exclusive in practice
+   * with `includeMelodyGuide` — don't turn both on, or the melody plays twice. */
+  vocalBuffer?: AudioBuffer | null;
+  instrumentalBuffer?: AudioBuffer | null;
+  vocalGain?: number;
+  instrumentalGain?: number;
+  harmonyGain?: number;
+  harmonyVoice?: GuideVoice;
+  /** Renders the main melody as a synthesized guide tone (PlaybackPanel's
+   * use case: no real vocal recording exists, only MIDI/manual notes). */
+  includeMelodyGuide?: boolean;
+  melodyGain?: number;
+  melodyVoice?: GuideVoice;
+}
+
+/**
+ * Renders the same mix `AudioMixPlayer`/`PlaybackPanel` play live, but into
+ * an in-memory buffer via `OfflineAudioContext` instead of real speakers —
+ * this is what MP3 export encodes. Reuses `schedulePlayback`/`playAudioBuffer`
+ * as-is (both take `BaseAudioContext`, which `OfflineAudioContext` also is)
+ * rather than duplicating the scheduling logic for an offline-only path.
+ */
+export async function renderMixOffline(options: MixRenderOptions): Promise<AudioBuffer> {
+  const { melody, harmony, bpm, vocalBuffer, instrumentalBuffer } = options;
+  const harmonyScheduled = harmony ? harmonyToScheduled(melody, harmony, bpm) : [];
+  const melodyScheduled = options.includeMelodyGuide ? notesToScheduled(melody, bpm) : [];
+
+  const totalSeconds =
+    Math.max(
+      vocalBuffer?.duration ?? 0,
+      instrumentalBuffer?.duration ?? 0,
+      totalDurationSeconds(harmonyScheduled, 1),
+      totalDurationSeconds(melodyScheduled, 1),
+    ) + 1; // +1s tail so the last note's release doesn't get truncated.
+  const sampleRate = vocalBuffer?.sampleRate ?? instrumentalBuffer?.sampleRate ?? 44100;
+  const offlineCtx = new OfflineAudioContext(2, Math.max(1, Math.ceil(totalSeconds * sampleRate)), sampleRate);
+
+  if (vocalBuffer) playAudioBuffer(offlineCtx, vocalBuffer, { gain: options.vocalGain ?? 1, startAt: 0 });
+  if (instrumentalBuffer) playAudioBuffer(offlineCtx, instrumentalBuffer, { gain: options.instrumentalGain ?? 1, startAt: 0 });
+  if (melodyScheduled.length > 0) {
+    schedulePlayback(offlineCtx, melodyScheduled, options.melodyVoice ?? "piano", {
+      gain: options.melodyGain ?? 0.6,
+      startAt: 0,
+    });
+  }
+  if (harmonyScheduled.length > 0) {
+    schedulePlayback(offlineCtx, harmonyScheduled, options.harmonyVoice ?? "softSynth", {
+      gain: options.harmonyGain ?? 0.6,
+      startAt: 0,
+    });
+  }
+
+  return offlineCtx.startRendering();
 }
 
 export interface CountInOptions {

@@ -7,6 +7,22 @@ need an entry.
 
 ### Added
 
+- **Audio upload → auto-analysis (Phase 5, local-engine).** A new optional
+  local Python service (`local-engine/`, see its README) can separate an
+  uploaded song's vocal from its instrumental, transcribe the vocal to a
+  melody, and detect tempo/key/chords/sections — all on `localhost` only,
+  nothing leaves your machine. The editor's new "오디오 업로드" panel drives
+  this end-to-end and fills in the melody/chords/sections/key/BPM fields
+  automatically (still editable by hand afterward, since every analysis
+  result is an estimate).
+- **Mixed playback of uploaded audio + generated harmony.** When you've
+  uploaded a song, a new "업로드한 오디오와 화음 함께 듣기" panel plays the
+  separated vocal stem, the instrumental stem, and the generated harmony
+  together, with an independent mute + volume toggle per track (e.g.
+  instrumental + harmony only, or vocal only).
+- **MP3 export.** Both the guide-playback panel and the new mixed-playback
+  panel can render their current mix and download it as an MP3 file
+  (client-side encoding, no server upload).
 - **Two-sided section-regeneration continuity.** Regenerating one section
   now voice-leads smoothly both into it (from the locked note before) and
   back out of it (into the locked note after) — previously only the

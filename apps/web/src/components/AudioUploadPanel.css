@@ -1,0 +1,65 @@
+.audio-upload-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audio-upload-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.audio-upload-ok {
+  color: #8bffb0;
+}
+
+.audio-upload-warning {
+  color: #ffd28b;
+}
+
+.audio-upload-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.audio-upload-hidden-input {
+  display: none;
+}
+
+.audio-upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+
+.audio-upload-progress-bar {
+  width: 200px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.audio-upload-progress-fill {
+  height: 100%;
+  background: #8b7bff;
+  transition: width 0.2s ease;
+}
+
+.audio-upload-error {
+  color: #ff8b8b;
+  font-size: 0.82rem;
+}
+
+.audio-upload-summary {
+  color: #8bffb0;
+  font-size: 0.82rem;
+}
+
+.audio-upload-hint {
+  color: rgba(242, 240, 255, 0.65);
+  font-size: 0.78rem;
+}

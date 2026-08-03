@@ -12,6 +12,7 @@ function firstNoteRow(page: import("@playwright/test").Page) {
 
 test("dragging a note moves it in time and pitch", async ({ page }) => {
   const note = page.locator(".piano-roll-note--melody").first();
+  await note.scrollIntoViewIfNeeded();
   const before = await note.boundingBox();
   if (!before) throw new Error("note not visible");
 
@@ -27,6 +28,7 @@ test("dragging a note moves it in time and pitch", async ({ page }) => {
 
 test("dragging a note's right edge resizes its duration", async ({ page }) => {
   const handle = page.locator(".piano-roll-resize-handle").first();
+  await handle.scrollIntoViewIfNeeded();
   const before = await handle.boundingBox();
   if (!before) throw new Error("resize handle not visible");
 
@@ -52,7 +54,9 @@ test("a plain click (no movement) selects the note instead of moving it", async 
 
 test("double-clicking empty space adds a new note", async ({ page }) => {
   const rowCountBefore = await page.locator(".editor-tables-grid table tbody tr").count();
-  const svgBox = await page.locator(".piano-roll-scroll svg").boundingBox();
+  const svg = page.locator(".piano-roll-scroll svg");
+  await svg.scrollIntoViewIfNeeded();
+  const svgBox = await svg.boundingBox();
   if (!svgBox) throw new Error("piano roll not visible");
 
   await page.mouse.dblclick(svgBox.x + 400, svgBox.y + 150);

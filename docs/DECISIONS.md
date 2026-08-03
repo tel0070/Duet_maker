@@ -420,3 +420,24 @@ a real limitation (not a source-separation algorithm) in
   browser via `npx playwright install --with-deps chromium` and needs no
   override at all. See `docs/TROUBLESHOOTING.md` for the env var a
   sandboxed dev environment now needs to set explicitly.
+- **Auto-checking local-engine's availability in a `useEffect` on mount**
+  (`AudioUploadPanel.tsx`) — reasonable-sounding UX (show connection status
+  immediately), but broke 9 existing "has no console errors" e2e tests:
+  when local-engine isn't running (the common case, since it's optional),
+  the `fetch("http://127.0.0.1:8000/health")` call fails with
+  `net::ERR_CONNECTION_REFUSED`, and Chromium logs that resource-load
+  failure to the console *itself* — catching the JS promise rejection does
+  not suppress it. Fixed by making the check manual-only (a "확인"/"다시
+  확인" button), so the failed request only happens when a user explicitly
+  asks, not on every single editor page load.
+- **Adding a whole new section above the piano roll shifted three
+  `piano-roll-drag.spec.ts` e2e tests below the fold** — they compute
+  click coordinates from `boundingBox()` and then use raw
+  `page.mouse.move`/`page.mouse.dblclick` (which, unlike locator methods
+  like `.click()`, do not auto-scroll the target into view first). Adding
+  the "오디오 업로드" section pushed the melody note/resize-handle/SVG
+  low enough to sit outside the default 1280x720 viewport at page load,
+  so the raw mouse coordinates landed on nothing. Fixed by adding
+  `scrollIntoViewIfNeeded()` before each affected `boundingBox()` call —
+  a reasonable test adaptation to a real layout change, not a weakening of
+  what the test actually checks.
