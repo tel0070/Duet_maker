@@ -37,6 +37,20 @@ separation-accuracy score (that needs a clean reference this app never has)
 
 ## Setup
 
+**Option A — standalone .exe, no Python required (Windows):** Run the
+"Build local-engine Windows Executable" workflow (Actions tab →
+`workflow_dispatch`, since it's manual-only and ~10 minutes) and download
+`duet-maker-local-engine.exe` from that run's Artifacts. Double-click it —
+it starts the same server as `uvicorn app.main:app` on `127.0.0.1:8000`.
+~550MB (bundles PyTorch/TensorFlow/Demucs/basic-pitch/librosa via
+PyInstaller). **Built and confirmed to run through GitHub's real
+windows-latest CI, but actually launching the produced .exe has not yet
+been verified on a real Windows machine** — this repo's own dev
+environment can't execute a Windows binary. Report back if it doesn't
+start cleanly.
+
+**Option B — Python install:**
+
 ```
 scripts\start-local-engine.bat
 ```
