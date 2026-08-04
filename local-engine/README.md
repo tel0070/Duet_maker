@@ -39,15 +39,22 @@ separation-accuracy score (that needs a clean reference this app never has)
 
 **Option A — standalone .exe, no Python required (Windows):** Run the
 "Build local-engine Windows Executable" workflow (Actions tab →
-`workflow_dispatch`, since it's manual-only and ~10 minutes) and download
-`duet-maker-local-engine.exe` from that run's Artifacts. Double-click it —
-it starts the same server as `uvicorn app.main:app` on `127.0.0.1:8000`.
-~550MB (bundles PyTorch/TensorFlow/Demucs/basic-pitch/librosa via
-PyInstaller). **Built and confirmed to run through GitHub's real
-windows-latest CI, but actually launching the produced .exe has not yet
-been verified on a real Windows machine** — this repo's own dev
-environment can't execute a Windows binary. Report back if it doesn't
-start cleanly.
+`workflow_dispatch`, ~10 minutes) and download
+`duet-maker-local-engine-windows` from that run's Artifacts — it's a
+**folder** (`--onedir`, not `--onefile`), unzip it and run
+`duet-maker-local-engine.exe` *from inside that folder* (it needs the
+adjacent files next to it; don't move just the .exe out on its own).
+~550MB total (bundles PyTorch/TensorFlow/Demucs/basic-pitch/librosa via
+PyInstaller).
+
+A first attempt used `--onefile`, which re-extracts its entire payload to
+a fresh temp directory on *every* launch — with this much bundled, that
+produces several minutes of a black window with a blinking cursor and
+zero output before anything actually starts, easily mistaken for a hang.
+`--onedir` unpacks once at build time instead, so launching is
+near-instant. (Confirmed building successfully on GitHub's real
+windows-latest CI; still needs a real run on an actual Windows machine
+to confirm the server itself starts cleanly — report back either way.)
 
 **Option B — Python install:**
 

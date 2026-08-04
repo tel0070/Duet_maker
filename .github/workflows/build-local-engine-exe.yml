@@ -36,8 +36,14 @@ jobs:
         run: pip install -r requirements-build.txt
 
       - name: Build standalone executable
+        # --onedir, not --onefile: a --onefile build has to re-extract its
+        # ~550MB payload to a fresh temp directory on every single launch
+        # before any Python code (even a print()) runs — with this many
+        # heavy dependencies bundled, that looks exactly like a frozen
+        # black window with a blinking cursor and no output for minutes.
+        # --onedir unpacks once at build time, so launching is near-instant.
         run: >
-          pyinstaller --onefile --name duet-maker-local-engine
+          pyinstaller --onedir --name duet-maker-local-engine
           --collect-all torch
           --collect-all torchaudio
           --collect-all demucs
@@ -46,9 +52,9 @@ jobs:
           --collect-all resampy
           app_entry.py
 
-      - name: Upload executable
+      - name: Upload executable folder
         uses: actions/upload-artifact@v4
         with:
           name: duet-maker-local-engine-windows
-          path: local-engine/dist/duet-maker-local-engine.exe
+          path: local-engine/dist/duet-maker-local-engine/
           retention-days: 14
