@@ -31,9 +31,9 @@ jobs:
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install local-engine + PyInstaller
-        run: |
-          pip install -r requirements.txt
-          pip install pyinstaller==6.11.1 pyinstaller-hooks-contrib==2024.10.21
+        # requirements-build.txt is the single source of truth for these
+        # pins, so a version bump doesn't need editing in two places.
+        run: pip install -r requirements-build.txt
 
       - name: Build standalone executable
         run: >
