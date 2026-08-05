@@ -10,7 +10,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-exe:
@@ -52,9 +52,30 @@ jobs:
           --collect-all resampy
           app_entry.py
 
-      - name: Upload executable folder
+      - name: Upload executable folder (CI artifact)
         uses: actions/upload-artifact@v4
         with:
           name: duet-maker-local-engine-windows
           path: local-engine/dist/duet-maker-local-engine/
           retention-days: 14
+
+      - name: Zip the build output
+        run: Compress-Archive -Path dist\duet-maker-local-engine -DestinationPath dist\duet-maker-local-engine-windows.zip
+
+      - name: Publish as a public GitHub Release
+        # Actions artifacts (the step above) require a GitHub sign-in to
+        # download, and their download link is easy to miss — Release
+        # assets are a plain public URL, no login needed, which is what an
+        # end user actually wants. Reuses one rolling tag/release so the
+        # download link stays stable across rebuilds instead of piling up
+        # a new release every run.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete local-engine-latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create local-engine-latest \
+            "dist/duet-maker-local-engine-windows.zip" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "local-engine standalone (Windows, auto-built)" \
+            --notes "Automatically built by .github/workflows/build-local-engine-exe.yml from commit ${{ github.sha }}. Unzip, then run duet-maker-local-engine.exe from inside the extracted duet-maker-local-engine folder (it needs the files next to it — don't move the .exe out on its own). See local-engine/README.md."

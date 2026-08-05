@@ -37,15 +37,20 @@ separation-accuracy score (that needs a clean reference this app never has)
 
 ## Setup
 
-**Option A — standalone .exe, no Python required (Windows):** Run the
-"Build local-engine Windows Executable" workflow (Actions tab →
-`workflow_dispatch`, ~10 minutes) and download
-`duet-maker-local-engine-windows` from that run's Artifacts — it's a
-**folder** (`--onedir`, not `--onefile`), unzip it and run
-`duet-maker-local-engine.exe` *from inside that folder* (it needs the
-adjacent files next to it; don't move just the .exe out on its own).
-~550MB total (bundles PyTorch/TensorFlow/Demucs/basic-pitch/librosa via
-PyInstaller).
+**Option A — standalone .exe, no Python required (Windows):** Download
+the zip from **https://github.com/tel0070/Duet_maker/releases/tag/local-engine-latest**
+(public, no GitHub login needed — a direct Actions-artifact download
+does require sign-in and is easy to miss, which is why this Release
+exists instead). Unzip it and run `duet-maker-local-engine.exe`
+*from inside the extracted folder* — it's a `--onedir` build, not a
+single self-contained file, so it needs the files next to it; don't
+move just the .exe out on its own. ~550MB total (bundles
+PyTorch/TensorFlow/Demucs/basic-pitch/librosa via PyInstaller).
+
+That Release is rebuilt in place (same URL every time) by the "Build
+local-engine Windows Executable" workflow (Actions tab →
+`workflow_dispatch`, ~10 minutes) whenever local-engine's dependencies or
+`app_entry.py` change.
 
 A first attempt used `--onefile`, which re-extracts its entire payload to
 a fresh temp directory on *every* launch — with this much bundled, that
