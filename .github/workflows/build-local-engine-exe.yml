@@ -33,7 +33,19 @@ jobs:
       - name: Install local-engine + PyInstaller
         # requirements-build.txt is the single source of truth for these
         # pins, so a version bump doesn't need editing in two places.
-        run: pip install -r requirements-build.txt
+        # backports.tarfile is installed explicitly: pkg_resources's
+        # PyInstaller runtime hook imports jaraco.context, which on
+        # Python < 3.12 imports backports.tarfile as a shim for a
+        # tarfile-extraction-filter API that version added — it's a
+        # separate PyPI distribution from the `backports` namespace
+        # itself, so `--collect-all backports` alone has nothing to
+        # collect unless this is actually installed first (confirmed via
+        # a real build log: "WARNING: collect_dynamic_libs - skipping
+        # library collection for module 'backports' as it is not a
+        # package" — a bare empty namespace dir, not the real submodule).
+        run: |
+          pip install -r requirements-build.txt
+          pip install backports.tarfile
 
       - name: Build standalone executable
         # --onedir, not --onefile: a --onefile build has to re-extract its
@@ -42,15 +54,12 @@ jobs:
         # heavy dependencies bundled, that looks exactly like a frozen
         # black window with a blinking cursor and no output for minutes.
         # --onedir unpacks once at build time, so launching is near-instant.
-        # `--collect-all backports`: pkg_resources (bundled because some
-        # dependency imports setuptools) runs a PyInstaller rthook at
-        # startup that imports jaraco.context -> backports.tarfile;
-        # PyInstaller's static analysis doesn't reliably find `backports`
-        # because it's an implicit Python namespace package, and without
-        # it the frozen exe crashes on launch with
-        # "ModuleNotFoundError: No module named 'backports'" before any
-        # of our own code runs — confirmed by a real user running the
-        # previous build from a terminal to see the traceback.
+        # `--collect-all backports.tarfile`: without it, the frozen exe
+        # crashes on launch with "ModuleNotFoundError: No module named
+        # 'backports'" before any of our own code runs — confirmed by a
+        # real user running the previous build from a terminal to see
+        # the traceback (double-clicking just closes the window on crash,
+        # too fast to read).
         run: >
           pyinstaller --onedir --name duet-maker-local-engine
           --collect-all torch
@@ -59,7 +68,7 @@ jobs:
           --collect-all basic_pitch
           --collect-all librosa
           --collect-all resampy
-          --collect-all backports
+          --collect-all backports.tarfile
           app_entry.py
 
       - name: Remove vendored license trees (fixes "Destination Path Too Long" on extraction)
