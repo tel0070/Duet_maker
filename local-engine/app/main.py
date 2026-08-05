@@ -12,12 +12,14 @@ honest limits of "cancel".
 from __future__ import annotations
 
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import jobs, keychords, pitch, sections, separation
 from .schemas import HealthResponse, JobCreatedResponse, JobStatusResponse
@@ -176,3 +178,24 @@ def separation_vocal(job_id: str) -> FileResponse:
 def separation_instrumental(job_id: str) -> FileResponse:
     result = _require_done_result(job_id)
     return FileResponse(result["instrumentalPath"], media_type="audio/wav")
+
+
+def _bundled_web_app_dir() -> Path:
+    # PyInstaller sets `sys._MEIPASS` to the frozen app's data directory in
+    # both --onefile and --onedir builds; running from source (dev, tests),
+    # `static/` next to local-engine's own root is used instead — the build
+    # workflow copies apps/web's `pnpm build` output there before freezing.
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+    return base / "static"
+
+
+_web_app_dir = _bundled_web_app_dir()
+if _web_app_dir.is_dir():
+    # Mounted last and at "/" so every route above still takes priority —
+    # Starlette tries routes in registration order, and only falls through
+    # to this catch-all for paths none of the API routes matched (the web
+    # app's own static assets, and "/" itself via `html=True`'s index.html
+    # fallback). This is what turns "run the exe" into "a browser tab with
+    # the actual app opens" instead of a bare headless API with nothing to
+    # look at — see app_entry.py for the auto-open-browser half of that.
+    app.mount("/", StaticFiles(directory=str(_web_app_dir), html=True), name="web-app")

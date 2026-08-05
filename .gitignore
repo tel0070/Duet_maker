@@ -32,6 +32,8 @@ local-engine/.venv/
 local-engine/__pycache__/
 local-engine/**/__pycache__/
 local-engine/.pytest_cache/
+# apps/web's build output, copied here only by build-local-engine-exe.yml
+local-engine/static/
 *.pyc
 
 # User project data / uploaded audio (never committed)

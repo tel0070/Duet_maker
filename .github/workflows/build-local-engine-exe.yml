@@ -21,6 +21,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install web app dependencies
+        working-directory: ${{ github.workspace }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the web app
+        # This is what makes the exe open to an actual working screen
+        # instead of a bare headless API — see the "Copy" step below and
+        # main.py's StaticFiles mount. VITE_BASE_PATH=/ because this is
+        # served from local-engine's own root, not a GitHub Pages subpath.
+        working-directory: ${{ github.workspace }}
+        run: pnpm --filter @duet-maker/web build
+        env:
+          VITE_BASE_PATH: /
+
+      - name: Copy the built web app into local-engine/static
+        shell: pwsh
+        run: Copy-Item -Path "..\apps\web\dist" -Destination "static" -Recurse -Force
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -69,6 +94,7 @@ jobs:
           --collect-all librosa
           --collect-all resampy
           --collect-all backports.tarfile
+          --add-data "static;static"
           app_entry.py
 
       - name: Remove vendored license trees (fixes "Destination Path Too Long" on extraction)

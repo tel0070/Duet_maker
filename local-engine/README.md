@@ -47,19 +47,56 @@ single self-contained file, so it needs the files next to it; don't
 move just the .exe out on its own. ~550MB total (bundles
 PyTorch/TensorFlow/Demucs/basic-pitch/librosa via PyInstaller).
 
+**This exe bundles the web app itself and opens it in your default
+browser automatically** — `app.main` mounts apps/web's production build
+(copied into `static/` by the build workflow) as a fallback route behind
+every API endpoint, and `app_entry.py` polls `/health` on a background
+thread and calls `webbrowser.open()` the moment the server is actually
+up. Running the exe is the whole experience: no separate `pnpm dev`, no
+typing a URL, just a console window (leave it open — closing it stops
+the server) and a browser tab with the working app. If the tab doesn't
+open on its own, the console prints the exact URL to open by hand.
+
 That Release is rebuilt in place (same URL every time) by the "Build
 local-engine Windows Executable" workflow (Actions tab →
-`workflow_dispatch`, ~10 minutes) whenever local-engine's dependencies or
-`app_entry.py` change.
+`workflow_dispatch`, ~10 minutes) whenever local-engine's dependencies,
+`app_entry.py`, or the web app change.
 
-A first attempt used `--onefile`, which re-extracts its entire payload to
-a fresh temp directory on *every* launch — with this much bundled, that
-produces several minutes of a black window with a blinking cursor and
-zero output before anything actually starts, easily mistaken for a hang.
-`--onedir` unpacks once at build time instead, so launching is
-near-instant. (Confirmed building successfully on GitHub's real
-windows-latest CI; still needs a real run on an actual Windows machine
-to confirm the server itself starts cleanly — report back either way.)
+Bugs found and fixed while getting this exe to actually run, in order —
+kept here because every one of them will resurface if this build is ever
+redone from scratch without this history:
+1. `--onefile` re-extracts its entire payload to a fresh temp directory
+   on *every* launch — with this much bundled, several minutes of a
+   black window with a blinking cursor and zero output before anything
+   starts, easily mistaken for a hang. Fixed by switching to `--onedir`
+   (unpacks once at build time).
+2. Windows Explorer's zip extractor refuses paths past ~260 characters;
+   torch bundles a `licenses/` folder that vendors *other* projects'
+   license texts 6-7 directories deep (torch → kineto → ... → duktape).
+   Fixed by deleting any `licenses/` folder directly under a
+   `*.dist-info` directory after the build (pure copyright text, not
+   imported by anything) and torch's `include/` C++ headers (also
+   unused at runtime, ~37MB/9000+ files, another source of long paths).
+3. The exe crashed on launch with `ModuleNotFoundError: No module named
+   'backports'` — pkg_resources's PyInstaller runtime hook imports
+   `jaraco.context`, which needs `backports.tarfile`, a separate PyPI
+   distribution that was never actually installed in the build
+   environment (so `--collect-all backports` had nothing real to
+   collect — confirmed by the build log's own "not a package" warning).
+   Fixed by `pip install backports.tarfile` before building.
+4. (Architecture change, not a bug fix) The exe originally only ran the
+   headless analysis API with no visible result — confusing on its own.
+   Fixed by bundling the web app's build output and auto-opening it, as
+   described above, instead of asking the user to separately run
+   `pnpm dev`.
+
+The static-file-serving side of this (steps 4) was verified locally
+against a real `apps/web` production build via FastAPI's `TestClient` —
+`/` serves `index.html`, `/assets/*` serves real built JS/CSS, unknown
+paths still 404 — before ever pushing to CI. The exe's actual launch
+(server starts, browser opens, page loads) has been confirmed to *build*
+successfully on GitHub's real windows-latest CI; whether it now runs
+end-to-end on a real Windows machine is the next thing to confirm.
 
 **Option B — Python install:**
 
