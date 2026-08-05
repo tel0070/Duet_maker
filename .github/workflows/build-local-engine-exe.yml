@@ -42,6 +42,15 @@ jobs:
         # heavy dependencies bundled, that looks exactly like a frozen
         # black window with a blinking cursor and no output for minutes.
         # --onedir unpacks once at build time, so launching is near-instant.
+        # `--collect-all backports`: pkg_resources (bundled because some
+        # dependency imports setuptools) runs a PyInstaller rthook at
+        # startup that imports jaraco.context -> backports.tarfile;
+        # PyInstaller's static analysis doesn't reliably find `backports`
+        # because it's an implicit Python namespace package, and without
+        # it the frozen exe crashes on launch with
+        # "ModuleNotFoundError: No module named 'backports'" before any
+        # of our own code runs — confirmed by a real user running the
+        # previous build from a terminal to see the traceback.
         run: >
           pyinstaller --onedir --name duet-maker-local-engine
           --collect-all torch
@@ -50,6 +59,7 @@ jobs:
           --collect-all basic_pitch
           --collect-all librosa
           --collect-all resampy
+          --collect-all backports
           app_entry.py
 
       - name: Remove vendored license trees (fixes "Destination Path Too Long" on extraction)
