@@ -52,6 +52,33 @@ jobs:
           --collect-all resampy
           app_entry.py
 
+      - name: Remove vendored license trees (fixes "Destination Path Too Long" on extraction)
+        # torch bundles a `licenses/` subfolder inside its .dist-info that
+        # recursively vendors *other* projects' third-party license texts
+        # (torch -> kineto -> libkineto -> dynolog -> prometheus-cpp ->
+        # civetweb -> duktape, etc.) — plain copyright text, never imported
+        # by any code, but nested 6-7 directories deep. A real user hit
+        # exactly this: Windows' built-in zip extractor refuses to extract
+        # it once the destination path passes ~260 characters. Deleting
+        # any `licenses` folder directly under a `*.dist-info` directory
+        # removes only that dead weight, not any actual runtime code.
+        shell: pwsh
+        run: >
+          Get-ChildItem -Path "dist\duet-maker-local-engine\_internal" -Filter "licenses" -Recurse -Directory -ErrorAction SilentlyContinue |
+          Where-Object { $_.FullName -match "\.dist-info[\\/]licenses$" } |
+          ForEach-Object { Write-Host "Removing $($_.FullName)"; Remove-Item -Path $_.FullName -Recurse -Force }
+
+      - name: Remove torch's C++ headers (build-time only, ~37MB/9000+ files, not needed to run)
+        # torch/include/ is for compiling custom C++/CUDA extensions
+        # against torch — irrelevant to just running inference, and its
+        # deeply-templated ATen header filenames are another source of
+        # near-260-character paths.
+        shell: pwsh
+        run: >
+          if (Test-Path "dist\duet-maker-local-engine\_internal\torch\include") {
+            Remove-Item -Path "dist\duet-maker-local-engine\_internal\torch\include" -Recurse -Force
+          }
+
       - name: Upload executable folder (CI artifact)
         uses: actions/upload-artifact@v4
         with:
