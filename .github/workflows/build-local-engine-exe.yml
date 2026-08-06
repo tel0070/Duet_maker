@@ -85,6 +85,20 @@ jobs:
         # real user running the previous build from a terminal to see
         # the traceback (double-clicking just closes the window on crash,
         # too fast to read).
+        # `--collect-all scipy`: same class of bug, different package —
+        # confirmed by the SAME real user's next terminal run:
+        # "ModuleNotFoundError: No module named 'scipy._cyutility'" while
+        # importing mir_eval -> scipy. `_cyutility` is a Cython-3-era
+        # internal helper module scipy's compiled extensions share; the
+        # pyinstaller-hooks-contrib version pinned here predates it, so
+        # its scipy hook doesn't know to include it and the plain
+        # --collect-submodules pass misses it too. `--collect-all`
+        # forces every file in, hidden compiled helpers included.
+        # `--collect-all sklearn`: not yet confirmed broken, but scikit-learn
+        # is already pulled in transitively (some dependency imports it)
+        # and shares scipy's Cython-compiled-extension setup, so it's the
+        # next most likely place for the exact same bug — added
+        # preemptively to avoid a third round-trip for the same root cause.
         run: >
           pyinstaller --onedir --name duet-maker-local-engine
           --collect-all torch
@@ -94,6 +108,8 @@ jobs:
           --collect-all librosa
           --collect-all resampy
           --collect-all backports.tarfile
+          --collect-all scipy
+          --collect-all sklearn
           --add-data "static;static"
           app_entry.py
 
