@@ -72,6 +72,28 @@ jobs:
           pip install -r requirements-build.txt
           pip install backports.tarfile
 
+      - name: Download static ffmpeg + ffprobe (Windows, LGPL build)
+        # demucs.audio.AudioFile loads every input file - wav included - by
+        # shelling out to the literal `ffmpeg`/`ffprobe` command names via
+        # subprocess + PATH lookup. Confirmed by actually running
+        # demucs.separate.main() against a synthetic file with neither
+        # binary present: it fails with "No such file or directory:
+        # 'ffprobe'", and demucs's own fallback to torchaudio also fails
+        # (this pinned torchaudio version needs the separate, unbundled
+        # `torchcodec` package to load ANY format). Windows has no ffmpeg
+        # preinstalled, and this exe must work with zero setup, so both
+        # binaries are bundled directly. The LGPL build (not GPL) is enough
+        # - audio *decoding* (mp3/wav/etc.) uses ffmpeg's built-in native
+        # decoders, not the GPL-only encoders this app never needs.
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip" -OutFile ffmpeg.zip
+          Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg-extracted
+          New-Item -ItemType Directory -Force -Path ffmpeg-bin | Out-Null
+          $ffmpegExe = Get-ChildItem -Path ffmpeg-extracted -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+          Copy-Item -Path $ffmpegExe.FullName -Destination "ffmpeg-bin\ffmpeg.exe"
+          Copy-Item -Path (Join-Path $ffmpegExe.DirectoryName "ffprobe.exe") -Destination "ffmpeg-bin\ffprobe.exe"
+
       - name: Build standalone executable
         # --onedir, not --onefile: a --onefile build has to re-extract its
         # ~550MB payload to a fresh temp directory on every single launch
@@ -111,6 +133,8 @@ jobs:
           --collect-all scipy
           --collect-all sklearn
           --add-data "static;static"
+          --add-binary "ffmpeg-bin\ffmpeg.exe;ffmpeg_bin"
+          --add-binary "ffmpeg-bin\ffprobe.exe;ffmpeg_bin"
           app_entry.py
 
       - name: Remove vendored license trees (fixes "Destination Path Too Long" on extraction)

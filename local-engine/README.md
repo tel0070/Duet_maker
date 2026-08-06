@@ -89,8 +89,30 @@ redone from scratch without this history:
    Fixed by bundling the web app's build output and auto-opening it, as
    described above, instead of asking the user to separately run
    `pnpm dev`.
+5. Found by a from-scratch code audit (not a user report): `/separate`
+   ran `subprocess.run(["python3", "-m", "demucs", ...])`, but the frozen
+   exe has no standalone `python3` binary to spawn at all — this always
+   failed silently in the exe even after every fix above, since no crash
+   had ever gotten far enough at runtime to reach this code path. Fixed
+   by calling `demucs.separate.main([...])` directly in-process (see
+   `app/separation.py`), with `SystemExit` converted to a real exception
+   since demucs signals failure via `sys.exit(1)`, which a bare
+   `except Exception` in `jobs.py` would not otherwise catch.
+6. Found by the same audit, one layer deeper: even after fix 5, demucs's
+   own `AudioFile` loads every input file — `.wav` included, not just
+   `.mp3` — by shelling out to the literal `ffmpeg`/`ffprobe` commands via
+   PATH lookup, and its fallback (`torchaudio.load()`) also fails on this
+   pinned torchaudio version because it needs the separate, unbundled
+   `torchcodec` package for every format. Windows has no ffmpeg
+   preinstalled, so `/separate` would still fail end-to-end on every real
+   upload. Confirmed directly (synthetic `.mp3` and `.wav` both failed the
+   same way; both succeeded once real `ffmpeg`+`ffprobe` binaries were put
+   on `PATH`). Fixed by downloading a static Windows ffmpeg+ffprobe build
+   (BtbN, LGPL) in the build workflow, bundling both via `--add-binary`,
+   and prepending their directory to `PATH` at import time in
+   `app/separation.py` (a no-op outside the frozen exe).
 
-The static-file-serving side of this (steps 4) was verified locally
+The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —
 `/` serves `index.html`, `/assets/*` serves real built JS/CSS, unknown
 paths still 404 — before ever pushing to CI. The exe's actual launch
@@ -135,18 +157,28 @@ Demucs downloads the `htdemucs` model weights (~80MB) on first real use and
 caches them under `~/.cache/torch/hub`; that first `/separate` call needs
 a working internet connection once.
 
+**ffmpeg/ffprobe:** demucs loads every audio file it separates (any
+format, `.wav` included) by shelling out to the external `ffmpeg` and
+`ffprobe` commands. The standalone exe bundles both (see bug 6 above) —
+a Python install (Option B) does not, so install ffmpeg yourself and make
+sure both `ffmpeg` and `ffprobe` are on `PATH` before calling `/separate`.
+
 ## Verified in development (2026-07-30)
 
 Confirmed by actually running the pipeline end-to-end against synthetic
 audio with a known ground truth (`pytest`, `tests/test_api.py`): tempo,
 key, and pitch detection recovered the exact values the test fixture was
 constructed with. `/separate` was confirmed to wire up correctly (FastAPI →
-background job → `demucs` subprocess → model-loading code path), but the
-actual model-weight download could not be verified from the sandbox this
-was built in, which blocks that specific outbound host — that is a sandbox
-network policy, not a code issue (a normal machine has no such
-restriction). Try `/separate` yourself once and open an issue if the
-download itself fails outside this dev sandbox.
+background job → `demucs.separate.main()` → model-loading code path), and
+`demucs`'s own file-loading step (`AudioFile`/`ffmpeg`/`ffprobe`) was
+confirmed directly against both a synthetic `.wav` and a real `.mp3` with
+static ffmpeg/ffprobe binaries on `PATH` (see bug 6 above) — both loaded
+successfully. What could *not* be verified from this dev sandbox is the
+actual `htdemucs` model-weight download, since the sandbox's network policy
+blocks that specific outbound host — that is a sandbox network policy, not
+a code issue (a normal machine has no such restriction). Try `/separate`
+yourself once end-to-end and open an issue if anything past the download
+fails outside this dev sandbox.
 
 ## Known limitations
 
