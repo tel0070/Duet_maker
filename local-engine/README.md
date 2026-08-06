@@ -44,8 +44,9 @@ does require sign-in and is easy to miss, which is why this Release
 exists instead). Unzip it and run `duet-maker-local-engine.exe`
 *from inside the extracted folder* — it's a `--onedir` build, not a
 single self-contained file, so it needs the files next to it; don't
-move just the .exe out on its own. ~550MB total (bundles
-PyTorch/TensorFlow/Demucs/basic-pitch/librosa via PyInstaller).
+move just the .exe out on its own. ~750MB total (bundles
+PyTorch/TensorFlow/Demucs/basic-pitch/librosa plus a static
+ffmpeg+ffprobe — see bug 6 below — via PyInstaller).
 
 **This exe bundles the web app itself and opens it in your default
 browser automatically** — `app.main` mounts apps/web's production build
