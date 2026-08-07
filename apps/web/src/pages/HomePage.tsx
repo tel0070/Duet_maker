@@ -10,6 +10,7 @@ export function HomePage() {
   const arrangement = useSessionStore((s) => s.arrangement);
   const melody = useSessionStore((s) => s.melody);
   const bpm = useSessionStore((s) => s.bpm);
+  const beatTimes = useSessionStore((s) => s.beatTimes);
   const vocalStemBlob = useSessionStore((s) => s.vocalStemBlob);
   const instrumentalStemBlob = useSessionStore((s) => s.instrumentalStemBlob);
   const reset = useSessionStore((s) => s.reset);
@@ -18,6 +19,11 @@ export function HomePage() {
 
   function handleDownloadMidi() {
     if (!arrangement) return;
+    // exportArrangementToMidi only supports a single constant-tempo meta
+    // track (see harmony-core/src/midi-export.ts) - unlike the audio
+    // mix/export above, the downloaded .mid file can still drift against
+    // the real song if its tempo isn't perfectly constant. Fixing that
+    // would need tempo-change meta-events, a separate, not-yet-done change.
     const bytes = exportArrangementToMidi({ melody, harmonyTrack: arrangement.harmonyTrack, bpm });
     downloadBlob(bytes, "duet-harmony.mid", "audio/midi");
   }
@@ -41,7 +47,7 @@ export function HomePage() {
             instrumentalStemBlob={instrumentalStemBlob}
             melody={melody}
             harmony={arrangement.harmonyTrack}
-            bpm={bpm}
+            beatTimes={beatTimes}
           />
           <div className="home-midi-row">
             <button type="button" onClick={handleDownloadMidi}>

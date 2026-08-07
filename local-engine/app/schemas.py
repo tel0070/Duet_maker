@@ -82,6 +82,7 @@ class TempoKeyChordsResult(BaseModel):
     key: str
     keyConfidence: float
     chords: list[ChordEventOut]
+    beatTimes: list[float]
 
 
 class SectionsResult(BaseModel):

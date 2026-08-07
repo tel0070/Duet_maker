@@ -137,6 +137,40 @@ redone from scratch without this history:
    `save`/`load` round-trip a real tensor correctly, and demucs's own
    `load_track()` now succeeds even with *no* ffmpeg/ffprobe on `PATH`
    at all (it falls through to the patched `torchaudio.load`).
+9. Reported by the same real user, after fixes 5-8 all shipped and the
+   pipeline finally ran end-to-end on a real song: the generated harmony
+   sounded completely off-beat, and the harmony pitches didn't fit either.
+   Root cause: this app used a single averaged bpm for the *entire* song to
+   convert every note/chord/section's timing between seconds and "beats"
+   (`beatmath.seconds_to_beats`, anchored at t=0 with one constant tempo).
+   Confirmed directly on the user's own exported mix: librosa's beat
+   tracker measured the real tempo climbing from ~130 to ~131 BPM
+   start-to-finish - under 1% per beat, but a real user's actual song is
+   essentially never *perfectly* constant-tempo, and that error compounds
+   linearly over a multi-minute song into a drift large enough to throw
+   generated harmony completely off the real beat by the second half (and
+   any harmony landing on the wrong instant sounds wrong against whatever
+   chord is *actually* playing there).
+
+   Fixed by introducing a real beat-time tempo map: `beatmath.py`'s
+   `seconds_to_beats_with_map`/`beats_to_seconds_with_map` use the actual
+   detected beat timestamps (already computed by librosa's beat tracker,
+   previously discarded down to one scalar) instead of a constant-tempo
+   formula, piecewise-linear between real beats and extrapolated past
+   either edge. `keychords.py` now returns this map (`beatTimes`) alongside
+   `bpm`; `pitch.py`/`sections.py` and their `/pitch/analyze`/
+   `/analyze/sections` endpoints take it instead of a bare bpm number
+   (JSON-encoded in a `beat_times` form field, since it's an array).
+   `apps/web`'s `audio-engine.ts` gained the mirror-image
+   `beatsToSecondsWithMap`, and `notesToScheduled`/`harmonyToScheduled`/
+   `renderMixOffline` now accept either a scalar bpm (kept for existing
+   tests and the MIDI export's single-tempo track, a known remaining gap -
+   see HomePage.tsx) or this real map — `AudioMixPlayer.tsx` always passes
+   the map now, so playback/export mixing stays locked to the song's actual
+   rhythm. Verified with new unit tests on both sides (a real local tempo
+   change the old scalar formula gets measurably wrong) and a real browser
+   run confirming the new `beat_times` field actually reaches the analyze
+   endpoints.
 
 The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —

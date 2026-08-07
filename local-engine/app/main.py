@@ -33,12 +33,13 @@ def _cap_cpu_threads() -> None:
 
 _cap_cpu_threads()
 
+import json
 import shutil
 import sys
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -95,12 +96,16 @@ async def start_separation(file: UploadFile) -> JobCreatedResponse:
 
 
 @app.post("/pitch/analyze", response_model=JobCreatedResponse)
-async def start_pitch_analysis(file: UploadFile, bpm: float) -> JobCreatedResponse:
+async def start_pitch_analysis(file: UploadFile, beat_times: str = Form(...)) -> JobCreatedResponse:
     workdir, input_path = await _save_upload(file)
+    # JSON-encoded array of real detected beat timestamps (seconds), from
+    # /analyze/tempo-key-chords's response — see beatmath.py's
+    # seconds_to_beats_with_map for why a single bpm number isn't used here.
+    beat_times_list = json.loads(beat_times)
 
     def work(job: jobs.Job) -> dict:
         job.update("멜로디 채보 중...", 0.3)
-        notes = pitch.analyze_pitch(str(input_path), bpm)
+        notes = pitch.analyze_pitch(str(input_path), beat_times_list)
         return {"notes": notes}
 
     job = jobs.start_job(work)
@@ -124,12 +129,13 @@ async def start_chords_analysis(file: UploadFile) -> JobCreatedResponse:
 
 
 @app.post("/analyze/sections", response_model=JobCreatedResponse)
-async def start_sections_analysis(file: UploadFile, bpm: float) -> JobCreatedResponse:
+async def start_sections_analysis(file: UploadFile, beat_times: str = Form(...)) -> JobCreatedResponse:
     workdir, input_path = await _save_upload(file)
+    beat_times_list = json.loads(beat_times)
 
     def work(job: jobs.Job) -> dict:
         job.update("구간(벌스/코러스) 분석 중...", 0.3)
-        return {"sections": sections.analyze_sections(str(input_path), bpm)}
+        return {"sections": sections.analyze_sections(str(input_path), beat_times_list)}
 
     job = jobs.start_job(work)
     _JOB_KIND[job.id] = "sections"

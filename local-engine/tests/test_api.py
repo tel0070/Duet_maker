@@ -9,6 +9,7 @@ local-engine/README.md).
 
 from __future__ import annotations
 
+import json
 import time
 
 import numpy as np
@@ -68,11 +69,21 @@ def test_tempo_key_chords_pipeline_matches_the_known_fixture(synthetic_c_major_s
     assert body["bpm"] == pytest.approx(60, abs=3)
     assert body["key"] == "C major"
     assert len(body["chords"]) > 0
+    assert len(body["beatTimes"]) > 1
+
+
+# 60bpm = one beat per second; the fixture is 8 one-second tones starting at
+# t=0, so this is what /analyze/tempo-key-chords would have returned for it.
+KNOWN_60BPM_BEAT_TIMES = json.dumps([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
 
 
 def test_pitch_pipeline_recovers_the_known_note_sequence(synthetic_c_major_scale):
     with open(synthetic_c_major_scale, "rb") as f:
-        started = client.post("/pitch/analyze", params={"bpm": 60}, files={"file": ("scale.wav", f, "audio/wav")})
+        started = client.post(
+            "/pitch/analyze",
+            data={"beat_times": KNOWN_60BPM_BEAT_TIMES},
+            files={"file": ("scale.wav", f, "audio/wav")},
+        )
     assert started.status_code == 200
     job_id = started.json()["jobId"]
 
@@ -96,7 +107,11 @@ def test_unknown_job_id_is_a_404():
 
 def test_result_before_done_is_not_a_500(synthetic_c_major_scale):
     with open(synthetic_c_major_scale, "rb") as f:
-        started = client.post("/analyze/sections", params={"bpm": 60}, files={"file": ("scale.wav", f, "audio/wav")})
+        started = client.post(
+            "/analyze/sections",
+            data={"beat_times": KNOWN_60BPM_BEAT_TIMES},
+            files={"file": ("scale.wav", f, "audio/wav")},
+        )
     job_id = started.json()["jobId"]
     # Immediately probing the result before the background thread finishes
     # must be a well-formed "still working" response, not a crash on a None result.

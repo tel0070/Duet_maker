@@ -19,7 +19,10 @@ export interface AudioMixPlayerProps {
   instrumentalStemBlob: Blob;
   melody: NoteEvent[];
   harmony: HarmonyNote[];
-  bpm: number;
+  /** The real detected beat-time map, not a single bpm — this is mixing
+   * against real recorded audio, so it must stay locked to the song's
+   * actual (possibly non-constant) tempo. See beatsToSecondsWithMap. */
+  beatTimes: number[];
 }
 
 const MODES: { id: MixMode; label: string; fileSuffix: string }[] = [
@@ -34,7 +37,13 @@ const MODES: { id: MixMode; label: string; fileSuffix: string }[] = [
  * generated harmony and the instrumental; the only choice is whether the
  * original vocal is in the mix too.
  */
-export function AudioMixPlayer({ vocalStemBlob, instrumentalStemBlob, melody, harmony, bpm }: AudioMixPlayerProps) {
+export function AudioMixPlayer({
+  vocalStemBlob,
+  instrumentalStemBlob,
+  melody,
+  harmony,
+  beatTimes,
+}: AudioMixPlayerProps) {
   const [playingMode, setPlayingMode] = useState<MixMode | null>(null);
   const [exportingMode, setExportingMode] = useState<MixMode | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +77,7 @@ export function AudioMixPlayer({ vocalStemBlob, instrumentalStemBlob, melody, ha
 
       if (vocalBuffer) handles.push(playAudioBuffer(ctx, vocalBuffer, { gain: 0.8, startAt }));
 
-      const scheduled = harmonyToScheduled(melody, harmony, bpm);
+      const scheduled = harmonyToScheduled(melody, harmony, beatTimes);
       if (scheduled.length > 0) {
         handles.push(schedulePlayback(ctx, scheduled, "softSynth", { gain: 0.6, startAt }));
       }
@@ -92,7 +101,7 @@ export function AudioMixPlayer({ vocalStemBlob, instrumentalStemBlob, melody, ha
       const rendered = await renderMixOffline({
         melody,
         harmony,
-        bpm,
+        bpm: beatTimes,
         vocalBuffer,
         instrumentalBuffer,
         vocalGain: 0.8,

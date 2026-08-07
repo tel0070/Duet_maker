@@ -10,7 +10,11 @@ export interface SessionState {
   progress: { stage: string; fraction: number } | null;
   error: string | null;
 
+  /** Single average tempo — kept only for the MIDI export's single-tempo
+   * meta-track (see HomePage.tsx). Real audio playback/export uses
+   * `beatTimes` instead (see audio-engine.ts's beatsToSecondsWithMap). */
   bpm: number;
+  beatTimes: number[];
   melody: NoteEvent[];
   arrangement: DuetArrangement | null;
   vocalStemBlob: Blob | null;
@@ -26,6 +30,7 @@ export interface SessionState {
 function blankResultFields() {
   return {
     bpm: 120,
+    beatTimes: [] as number[],
     melody: [] as NoteEvent[],
     arrangement: null as DuetArrangement | null,
     vocalStemBlob: null as Blob | null,
@@ -69,6 +74,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         status: "ready",
         progress: null,
         bpm: analysis.bpm,
+        beatTimes: analysis.beatTimes,
         melody: analysis.melody,
         arrangement,
         vocalStemBlob: analysis.vocalStemBlob,

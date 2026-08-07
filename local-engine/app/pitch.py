@@ -15,7 +15,7 @@ from . import beatmath
 MIN_NOTE_BEATS = 1 / 32
 
 
-def analyze_pitch(path: str, bpm: float) -> list[dict]:
+def analyze_pitch(path: str, beat_times: list[float]) -> list[dict]:
     _model_output, _midi_data, note_events = predict(path)
 
     notes = []
@@ -28,8 +28,13 @@ def analyze_pitch(path: str, bpm: float) -> list[dict]:
         # a separate number.
         start_s, end_s, pitch_midi, amplitude = event[0], event[1], event[2], event[3]
 
-        start_beats = beatmath.round_beats(beatmath.seconds_to_beats(start_s, bpm))
-        duration_beats = beatmath.round_beats(beatmath.seconds_to_beats(end_s - start_s, bpm))
+        # beat_times is the real detected beat grid from keychords.py's tempo
+        # analysis (see beatmath.seconds_to_beats_with_map) — using it instead
+        # of a single constant bpm keeps the melody's beat positions accurate
+        # even when the song's real tempo drifts over its length.
+        start_beats = beatmath.round_beats(beatmath.seconds_to_beats_with_map(start_s, beat_times))
+        end_beats = beatmath.round_beats(beatmath.seconds_to_beats_with_map(end_s, beat_times))
+        duration_beats = end_beats - start_beats
         if duration_beats < MIN_NOTE_BEATS:
             duration_beats = MIN_NOTE_BEATS
 

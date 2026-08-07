@@ -36,12 +36,17 @@ def analyze_tempo_key_chords(path: str) -> dict:
 
     merged = _merge_consecutive_chords(raw_chords)
 
+    beat_times_list = [float(t) for t in beat_times]
+
     chord_events = []
     for chord in merged:
-        start_beats = beatmath.round_beats(beatmath.seconds_to_beats(chord["startSeconds"], bpm))
-        duration_beats = beatmath.round_beats(
-            beatmath.seconds_to_beats(chord["endSeconds"] - chord["startSeconds"], bpm)
+        start_beats = beatmath.round_beats(
+            beatmath.seconds_to_beats_with_map(chord["startSeconds"], beat_times_list)
         )
+        end_beats = beatmath.round_beats(
+            beatmath.seconds_to_beats_with_map(chord["endSeconds"], beat_times_list)
+        )
+        duration_beats = end_beats - start_beats
         if duration_beats <= 0:
             continue
         chord_events.append(
@@ -62,6 +67,13 @@ def analyze_tempo_key_chords(path: str) -> dict:
         "key": key_label,
         "keyConfidence": key_confidence,
         "chords": chord_events,
+        # The real, non-uniform detected beat grid — see beatmath's
+        # `*_with_map` functions. `bpm` above is still the single average
+        # (kept for display and for the MIDI export's single-tempo track),
+        # but every other seconds<->beats conversion in this app now uses
+        # this map instead, so generated harmony stays locked to the song's
+        # actual rhythm even when its real tempo isn't perfectly constant.
+        "beatTimes": beat_times_list,
     }
 
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   beatsToSeconds,
+  beatsToSecondsWithMap,
   harmonyToScheduled,
   midiToFrequency,
   notesToScheduled,
@@ -26,6 +27,33 @@ describe("beatsToSeconds", () => {
     expect(beatsToSeconds(1, 60)).toBe(1);
     expect(beatsToSeconds(2, 120)).toBe(1);
     expect(beatsToSeconds(4, 90)).toBeCloseTo(2.6667, 3);
+  });
+});
+
+describe("beatsToSecondsWithMap", () => {
+  it("matches the constant-tempo scalar formula on a uniform grid", () => {
+    const beatTimes = [0, 1, 2, 3, 4];
+    for (const beats of [0, 0.5, 1.5, 3.9]) {
+      expect(beatsToSecondsWithMap(beats, beatTimes)).toBeCloseTo(beatsToSeconds(beats, 60), 10);
+    }
+  });
+
+  it("tracks a real local tempo change a single average bpm would miss", () => {
+    // beat 0->1 is 1s/beat (60bpm), beat 1->2 is 0.5s/beat (120bpm) - a
+    // single average bpm over the whole map (80bpm here) would place beat
+    // 1.5 at 1.125s, not the real 1.25s.
+    const beatTimes = [0, 1, 1.5];
+    expect(beatsToSecondsWithMap(1.5, beatTimes)).toBeCloseTo(1.25, 10);
+    expect(beatsToSeconds(1.5, 80)).not.toBeCloseTo(1.25, 2);
+  });
+
+  it("extrapolates past either edge of the map instead of clamping", () => {
+    expect(beatsToSecondsWithMap(-0.5, [2, 3, 4])).toBeCloseTo(1.5, 10);
+    expect(beatsToSecondsWithMap(2.5, [0, 1, 2])).toBeCloseTo(2.5, 10);
+  });
+
+  it("rejects a too-short map", () => {
+    expect(() => beatsToSecondsWithMap(1, [0])).toThrow();
   });
 });
 
@@ -86,6 +114,37 @@ describe("notesToScheduled / harmonyToScheduled", () => {
     const scheduled = harmonyToScheduled(melody, harmony, 120);
     expect(scheduled).toHaveLength(1);
     expect(scheduled[0]!.frequency).toBeCloseTo(midiToFrequency(64), 5);
+  });
+
+  it("accepts a beat-time map instead of a scalar bpm, with correct durations even across a local tempo change", () => {
+    // beat 0->1 is 1s/beat, beat 5->6 is 0.5s/beat - if duration were
+    // converted independently of the note's actual start position (the bug
+    // this guards against), a 1-beat-long note starting at beat 5 would
+    // wrongly get the *first* interval's 1s duration instead of the real
+    // interval's 0.5s.
+    const beatTimes = [0, 1, 2, 3, 4, 5, 5.5, 6];
+    const melody = [
+      { id: "n1", pitch: 60, startTime: 5, duration: 1, velocity: 90, confidence: 1, source: "user-input" as const, editable: true },
+    ];
+    const scheduled = notesToScheduled(melody, beatTimes);
+    expect(scheduled).toEqual([{ frequency: midiToFrequency(60), startTime: 5, duration: 0.5, velocity: 90 }]);
+
+    const harmony = [
+      {
+        originalNoteId: "n1",
+        generatedPitch: 64,
+        relationToMelody: "thirdAbove" as const,
+        chordRole: "third" as const,
+        motionType: "none" as const,
+        styleReason: "",
+        scoreBreakdown: {},
+        confidence: 0.5,
+      },
+    ];
+    const scheduledHarmony = harmonyToScheduled(melody, harmony, beatTimes);
+    expect(scheduledHarmony).toEqual([
+      { frequency: midiToFrequency(64), startTime: 5, duration: 0.5, velocity: 90 },
+    ]);
   });
 });
 

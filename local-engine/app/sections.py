@@ -15,7 +15,7 @@ import numpy as np
 from . import audio_features, beatmath
 
 
-def analyze_sections(path: str, bpm: float) -> list[dict]:
+def analyze_sections(path: str, beat_times: list[float]) -> list[dict]:
     y, sr = audio_features.load_audio(path)
     boundaries = audio_features.segment_boundaries(y, sr)
     rms, times = audio_features.rms_curve(y, sr)
@@ -55,8 +55,11 @@ def analyze_sections(path: str, bpm: float) -> list[dict]:
             {
                 "id": f"section-{uuid.uuid4().hex}",
                 "type": section_type,
-                "startTime": beatmath.round_beats(beatmath.seconds_to_beats(start_s, bpm)),
-                "endTime": beatmath.round_beats(beatmath.seconds_to_beats(end_s, bpm)),
+                # beat_times: the real detected beat grid (see pitch.py's
+                # identical comment) - keeps section boundaries accurate
+                # even when the song's real tempo drifts over its length.
+                "startTime": beatmath.round_beats(beatmath.seconds_to_beats_with_map(start_s, beat_times)),
+                "endTime": beatmath.round_beats(beatmath.seconds_to_beats_with_map(end_s, beat_times)),
                 "energy": max(0.0, min(1.0, energy)),
                 "harmonyDensity": max(0.0, min(1.0, 0.4 + energy * 0.4)),
                 "confidence": confidence,

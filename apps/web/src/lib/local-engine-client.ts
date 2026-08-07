@@ -90,11 +90,26 @@ function audioForm(audio: Blob): FormData {
   return form;
 }
 
+/** Also carries the real detected beat-time map alongside the file, for
+ * endpoints that need accurate seconds<->beats conversion (see
+ * beatsToSecondsWithMap in audio-engine.ts for why a single bpm isn't
+ * enough — this is the same fix, on the request-building side). */
+function audioFormWithBeatTimes(audio: Blob, beatTimes: number[]): FormData {
+  const form = audioForm(audio);
+  form.append("beat_times", JSON.stringify(beatTimes));
+  return form;
+}
+
 interface TempoKeyChordsResponse {
   bpm: number;
   key: string;
   keyConfidence: number;
   chords: ConfidenceScored<ChordEvent>[];
+  /** The real, non-uniform detected beat grid (seconds) — see
+   * beatsToSecondsWithMap in audio-engine.ts. `bpm` above is still the
+   * single average (kept for display and the MIDI export's single-tempo
+   * track), but every other seconds<->beats conversion should use this. */
+  beatTimes: number[];
 }
 
 async function fetchTempoKeyChords(
@@ -179,20 +194,20 @@ export class LocalEnginePitchExtractionProvider extends LocalEngineProviderBase 
   }
 
   /**
-   * Standalone use only — determines its own tempo first since this
-   * interface has no bpm parameter. `analyzeUploadedSong` below shares one
-   * tempo detection across pitch/chords/sections instead of repeating it.
+   * Standalone use only — determines its own tempo map first since this
+   * interface has no bpm/beatTimes parameter. `analyseFull` below shares
+   * one tempo detection across pitch/chords/sections instead of repeating it.
    */
   async analyseAudio(audio: Blob): Promise<Array<ConfidenceScored<NoteEvent>>> {
     this.reset();
-    const { bpm } = await fetchTempoKeyChords(audio, () => undefined, this.isCancelled, () => undefined);
-    return this.analyseAudioWithBpm(audio, bpm);
+    const { beatTimes } = await fetchTempoKeyChords(audio, () => undefined, this.isCancelled, () => undefined);
+    return this.analyseAudioWithBeatTimes(audio, beatTimes);
   }
 
-  async analyseAudioWithBpm(audio: Blob, bpm: number): Promise<Array<ConfidenceScored<NoteEvent>>> {
+  async analyseAudioWithBeatTimes(audio: Blob, beatTimes: number[]): Promise<Array<ConfidenceScored<NoteEvent>>> {
     this.reset();
-    const form = audioForm(audio);
-    const jobId = await startJob(`/pitch/analyze?bpm=${encodeURIComponent(bpm)}`, form);
+    const form = audioFormWithBeatTimes(audio, beatTimes);
+    const jobId = await startJob("/pitch/analyze", form);
     this.jobId = jobId;
     await pollUntilDone(jobId, this.trackProgress, this.isCancelled);
     const response = await fetch(`${baseUrl()}/pitch/${jobId}/result`);
@@ -221,13 +236,13 @@ export class LocalEngineSectionDetectionProvider extends LocalEngineProviderBase
 
   async detectSections(audio: Blob): Promise<Array<ConfidenceScored<SongSection>>> {
     this.reset();
-    const { bpm } = await fetchTempoKeyChords(audio, () => undefined, this.isCancelled, () => undefined);
-    return this.detectSectionsWithBpm(audio, bpm);
+    const { beatTimes } = await fetchTempoKeyChords(audio, () => undefined, this.isCancelled, () => undefined);
+    return this.detectSectionsWithBeatTimes(audio, beatTimes);
   }
 
-  async detectSectionsWithBpm(audio: Blob, bpm: number): Promise<Array<ConfidenceScored<SongSection>>> {
+  async detectSectionsWithBeatTimes(audio: Blob, beatTimes: number[]): Promise<Array<ConfidenceScored<SongSection>>> {
     this.reset();
-    const jobId = await startJob(`/analyze/sections?bpm=${encodeURIComponent(bpm)}`, audioForm(audio));
+    const jobId = await startJob("/analyze/sections", audioFormWithBeatTimes(audio, beatTimes));
     this.jobId = jobId;
     await pollUntilDone(jobId, this.trackProgress, this.isCancelled);
     const response = await fetch(`${baseUrl()}/analyze/${jobId}/sections-result`);
@@ -241,6 +256,9 @@ export interface FullSongAnalysisResult {
   key: string;
   keyConfidence: number;
   bpm: number;
+  /** The real detected beat-time map — use this (not `bpm`) for any
+   * seconds<->beats conversion of real audio playback/export. */
+  beatTimes: number[];
   chords: ConfidenceScored<ChordEvent>[];
   melody: Array<ConfidenceScored<NoteEvent>>;
   sections: Array<ConfidenceScored<SongSection>>;
@@ -252,10 +270,11 @@ export interface FullSongAnalysisResult {
 /**
  * The actual sequence the "오디오 업로드" flow drives: separate the vocal
  * first, detect tempo/key/chords from the *instrumental* stem (more
- * rhythmically stable than an a cappella vocal), then reuse that one bpm
- * for both pitch extraction (on the vocal stem) and section detection (on
- * the instrumental stem) — this is why `AudioAnalysisProvider` composes the
- * four single-purpose providers instead of each figuring out bpm on its own.
+ * rhythmically stable than an a cappella vocal), then reuse that one beat-
+ * time map for both pitch extraction (on the vocal stem) and section
+ * detection (on the instrumental stem) — this is why `AudioAnalysisProvider`
+ * composes the four single-purpose providers instead of each figuring out
+ * tempo on its own.
  */
 export class LocalEngineAudioAnalysisProvider extends LocalEngineProviderBase implements AudioAnalysisProvider {
   providerId = "local-engine-full";
@@ -290,18 +309,22 @@ export class LocalEngineAudioAnalysisProvider extends LocalEngineProviderBase im
 
     this.trackProgress({ fraction: 0.65, stage: "멜로디 채보 중..." });
     const pitchProvider = new LocalEnginePitchExtractionProvider();
-    const melody = await pitchProvider.analyseAudioWithBpm(separation.vocalStemBlob, tempoKeyChords.bpm);
+    const melody = await pitchProvider.analyseAudioWithBeatTimes(separation.vocalStemBlob, tempoKeyChords.beatTimes);
     if (this.isCancelled()) throw new CancelledError();
 
     this.trackProgress({ fraction: 0.85, stage: "구간(벌스/코러스) 분석 중..." });
     const sectionProvider = new LocalEngineSectionDetectionProvider();
-    const sections = await sectionProvider.detectSectionsWithBpm(separation.instrumentalStemBlob, tempoKeyChords.bpm);
+    const sections = await sectionProvider.detectSectionsWithBeatTimes(
+      separation.instrumentalStemBlob,
+      tempoKeyChords.beatTimes,
+    );
 
     this.trackProgress({ fraction: 1, stage: "완료" });
     return {
       key: tempoKeyChords.key,
       keyConfidence: tempoKeyChords.keyConfidence,
       bpm: tempoKeyChords.bpm,
+      beatTimes: tempoKeyChords.beatTimes,
       chords: tempoKeyChords.chords,
       melody,
       sections,
