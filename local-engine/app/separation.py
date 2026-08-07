@@ -26,6 +26,7 @@ from pathlib import Path
 import demucs.separate
 import librosa
 import numpy as np
+import soundfile as sf
 import torch
 
 MODEL_NAME = "htdemucs"
@@ -53,6 +54,74 @@ def _ensure_bundled_ffmpeg_on_path() -> None:
 
 
 _ensure_bundled_ffmpeg_on_path()
+
+
+def _patch_torchaudio_to_avoid_torchcodec() -> None:
+    """demucs.audio.save_audio() writes every separated .wav/.flac file via
+    `torchaudio.save()`, which - separately from the ffmpeg/ffprobe fix
+    above for *loading* - routes through the unbundled `torchcodec` package
+    on this pinned torchaudio version too, for saving. Confirmed by a real
+    user's traceback after the load-side fix already shipped: "TorchCodec
+    is required for save_with_torchcodec." Bundling ffmpeg/ffprobe binaries
+    doesn't help here at all - this is a direct Python call into
+    torchcodec, not a subprocess demucs shells out to. soundfile (already a
+    hard dependency of this app, no ffmpeg/torchcodec involved) reads and
+    writes wav/flac just as well, so both `torchaudio.save` and
+    `torchaudio.load` are replaced with thin soundfile-backed
+    implementations before demucs ever runs - `load` isn't currently known
+    to be hit (demucs's own `AudioFile.read()` succeeds first via the
+    ffmpeg/ffprobe fix, so `separate.py`'s `ta.load()` fallback is never
+    reached), but it would hit the exact same torchcodec error if it ever
+    were, so it's patched too rather than left as a latent trap. `ta.save`/
+    `ta.load` inside demucs resolve through these same patched attributes,
+    since `import torchaudio as ta` just binds a name to the torchaudio
+    module object - it doesn't copy the functions.
+    """
+    import torchaudio
+
+    subtype_by_encoding = {
+        ("PCM_S", 16): "PCM_16",
+        ("PCM_S", 24): "PCM_24",
+        ("PCM_S", 32): "PCM_32",
+        ("PCM_F", 32): "FLOAT",
+    }
+
+    def _save_via_soundfile(
+        uri,
+        src,
+        sample_rate,
+        channels_first: bool = True,
+        format=None,  # noqa: A002 - matches torchaudio.save's own parameter name
+        encoding=None,
+        bits_per_sample=None,
+        **_kwargs,
+    ) -> None:
+        data = src.detach().cpu().numpy()
+        if channels_first:
+            data = data.T  # (channels, time) -> (time, channels), what soundfile expects
+        subtype = subtype_by_encoding.get((encoding, bits_per_sample), "PCM_16")
+        sf.write(str(uri), data, sample_rate, subtype=subtype)
+
+    def _load_via_soundfile(
+        uri,
+        frame_offset: int = 0,
+        num_frames: int = -1,
+        normalize: bool = True,  # noqa: ARG001 - soundfile's float32 read is already normalized
+        channels_first: bool = True,
+        format=None,  # noqa: A002 - matches torchaudio.load's own parameter name
+        **_kwargs,
+    ):
+        data, sample_rate = sf.read(
+            str(uri), start=frame_offset, frames=num_frames, dtype="float32", always_2d=True
+        )
+        tensor = torch.from_numpy(data.T if channels_first else data)
+        return tensor, sample_rate
+
+    torchaudio.save = _save_via_soundfile
+    torchaudio.load = _load_via_soundfile
+
+
+_patch_torchaudio_to_avoid_torchcodec()
 
 # Belt-and-suspenders alongside main.py's _cap_cpu_threads() env vars: this
 # is torch's own authoritative thread-count API, called directly in case a

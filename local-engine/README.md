@@ -122,6 +122,21 @@ redone from scratch without this history:
    free. This does not make separation itself faster — on-device ML
    inference on a CPU is genuinely slow, minutes for a real song — it just
    stops it from locking out everything else while it runs.
+8. Reported by the same real user, on the next attempt after fix 6 shipped:
+   `/separate` failed with "TorchCodec is required for
+   save_with_torchcodec." — demucs writes every separated `.wav` via
+   `torchaudio.save()`, which (separately from the *loading* side fixed in
+   6) also needs the unbundled `torchcodec` package on this pinned
+   torchaudio version, for saving. Bundling ffmpeg/ffprobe doesn't touch
+   this at all — it's a direct Python call into torchcodec, not a
+   subprocess. Fixed by monkeypatching both `torchaudio.save` and
+   `torchaudio.load` to thin soundfile-backed implementations before
+   demucs ever runs (`app/separation.py`'s
+   `_patch_torchaudio_to_avoid_torchcodec()`) — soundfile has no
+   ffmpeg/torchcodec dependency at all. Verified directly: the patched
+   `save`/`load` round-trip a real tensor correctly, and demucs's own
+   `load_track()` now succeeds even with *no* ffmpeg/ffprobe on `PATH`
+   at all (it falls through to the patched `torchaudio.load`).
 
 The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —
