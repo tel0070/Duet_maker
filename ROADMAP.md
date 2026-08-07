@@ -83,3 +83,37 @@ item's state changes.
 - [ ] Final-chorus expansion beyond the current density heuristic
 - [ ] Genre presets
 - [ ] Natural singing-synthesis adapter evaluation (`VocalSynthesisProvider`)
+
+## Phase 7 — Redesign: single-flow app (apps/web)
+
+A real user found the Phase 2/3 manual composition editor (piano roll,
+chord/section tables, style picker, recording/practice tools, multi-project
+management) too confusing and heavy for what they actually wanted, and asked
+for a full redesign down to one flow: upload an mp3 -> local-engine
+separates/analyzes it automatically -> harmony-core generates a richly
+varied harmony automatically (no manual style picker: every style x a few
+seeds is tried and the best-scoring result wins, `apps/web/src/lib/
+auto-harmony.ts`) -> two playback/export presets (반주+화음, 반주+화음+원곡보컬,
+`AudioMixPlayer.tsx`) plus a harmony MIDI download.
+
+- [x] Deleted the manual editor and everything only it used: `EditorPage`,
+  `LandingPage`, `PianoRoll`, `ChordTable`/`NoteTable`/`SectionTable`,
+  `StylePicker`, `Toolbar` (sample projects, MIDI/JSON import-export),
+  `RecordingPanel`, `PlaybackPanel`, `ProjectList`, the IndexedDB
+  `storage.ts` layer, `sample-projects.ts`, and their tests/e2e specs.
+  `harmony-core`/`shared-types`/`local-engine` are unchanged — this was a
+  UI-layer redesign, not an engine rewrite.
+- [x] New `HomePage.tsx` + `session-store.ts` driving the single flow;
+  `AudioMixPlayer.tsx` rewritten from 3 mute checkboxes + volume sliders to
+  2 fixed presets.
+- [x] Verified with `tsc`/`eslint`/`vitest` all green, a production `vite
+  build`, and a real browser run (Playwright + a throwaway mock of
+  local-engine's HTTP contract) driving an actual file upload through to
+  the "결과" screen with both playback presets and the MIDI button, zero
+  console errors.
+- [x] local-engine: capped CPU thread usage (`app/main.py`'s
+  `_cap_cpu_threads()`, `app/separation.py`'s `torch.set_num_threads()`) —
+  the same user reported their whole computer freezing while a real song
+  processed, caused by torch/numpy defaulting to every CPU core.
+- [ ] Confirmed by the user on their own machine with a real song, on the
+  rebuilt standalone exe.

@@ -22,15 +22,3 @@ h2 {
   font-size: 1.2rem;
   margin-bottom: 12px;
 }
-
-.back-to-landing {
-  display: inline-block;
-  margin: 16px 20px 0;
-  color: #8b7bff;
-  text-decoration: none;
-  font-size: 0.85rem;
-}
-
-.back-to-landing:hover {
-  text-decoration: underline;
-}

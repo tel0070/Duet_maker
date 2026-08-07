@@ -1,0 +1,29 @@
+.home-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.home-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+}
+
+.home-header p {
+  margin: 0;
+  color: rgba(242, 240, 255, 0.75);
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-midi-row {
+  display: flex;
+  gap: 10px;
+}

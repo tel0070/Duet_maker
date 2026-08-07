@@ -12,37 +12,35 @@ import { downloadBlob } from "../lib/download.js";
 import { encodeAudioBufferToMp3 } from "../lib/mp3-export.js";
 import "./AudioMixPlayer.css";
 
+export type MixMode = "instrumentalHarmony" | "instrumentalHarmonyVocal";
+
 export interface AudioMixPlayerProps {
   vocalStemBlob: Blob;
   instrumentalStemBlob: Blob;
   melody: NoteEvent[];
-  harmony?: HarmonyNote[];
+  harmony: HarmonyNote[];
   bpm: number;
 }
 
+const MODES: { id: MixMode; label: string; fileSuffix: string }[] = [
+  { id: "instrumentalHarmony", label: "반주 + 화음", fileSuffix: "instrumental-harmony" },
+  { id: "instrumentalHarmonyVocal", label: "반주 + 화음 + 원곡 보컬", fileSuffix: "instrumental-harmony-vocal" },
+];
+
 /**
- * Mixes three independent tracks — the uploaded song's separated vocal
- * stem, its instrumental stem, and the generated harmony (synthesized as a
- * guide tone, same as PlaybackPanel) — with a mute toggle per track so any
- * combination can be heard (e.g. instrumental + harmony only, or vocal +
- * harmony only). Volumes are read once at the moment playback starts, same
- * convention as PlaybackPanel's sliders.
+ * Two fixed presets instead of the old per-track mute checkboxes + volume
+ * sliders — that flexibility was exactly the kind of "왜 이게 있는지 모르겠음"
+ * clutter this app got rewritten to remove. Both presets always include the
+ * generated harmony and the instrumental; the only choice is whether the
+ * original vocal is in the mix too.
  */
 export function AudioMixPlayer({ vocalStemBlob, instrumentalStemBlob, melody, harmony, bpm }: AudioMixPlayerProps) {
-  const [vocalMuted, setVocalMuted] = useState(false);
-  const [instrumentalMuted, setInstrumentalMuted] = useState(false);
-  const [harmonyMuted, setHarmonyMuted] = useState(false);
-  const [vocalVolume, setVocalVolume] = useState(0.8);
-  const [instrumentalVolume, setInstrumentalVolume] = useState(0.8);
-  const [harmonyVolume, setHarmonyVolume] = useState(0.6);
-  const [playing, setPlaying] = useState(false);
+  const [playingMode, setPlayingMode] = useState<MixMode | null>(null);
+  const [exportingMode, setExportingMode] = useState<MixMode | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const handlesRef = useRef<PlaybackHandle[]>([]);
-
-  const hasHarmony = Boolean(harmony && harmony.some((h) => h.generatedPitch !== null));
 
   function getAudioContext(): AudioContext {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
@@ -53,131 +51,87 @@ export function AudioMixPlayer({ vocalStemBlob, instrumentalStemBlob, melody, ha
   function stop() {
     for (const handle of handlesRef.current) handle.stop();
     handlesRef.current = [];
-    setPlaying(false);
+    setPlayingMode(null);
   }
 
-  async function play() {
+  async function play(mode: MixMode) {
     setError(null);
     stop();
     try {
       const ctx = getAudioContext();
-      const [vocalBuffer, instrumentalBuffer] = await Promise.all([
-        decodeAudioBlob(ctx, vocalStemBlob),
+      const [instrumentalBuffer, vocalBuffer] = await Promise.all([
         decodeAudioBlob(ctx, instrumentalStemBlob),
+        mode === "instrumentalHarmonyVocal" ? decodeAudioBlob(ctx, vocalStemBlob) : Promise.resolve(null),
       ]);
       const startAt = ctx.currentTime + 0.05;
-      const handles: PlaybackHandle[] = [];
+      const handles: PlaybackHandle[] = [playAudioBuffer(ctx, instrumentalBuffer, { gain: 0.8, startAt })];
 
-      if (!vocalMuted) handles.push(playAudioBuffer(ctx, vocalBuffer, { gain: vocalVolume, startAt }));
-      if (!instrumentalMuted) handles.push(playAudioBuffer(ctx, instrumentalBuffer, { gain: instrumentalVolume, startAt }));
-      if (!harmonyMuted && harmony) {
-        const scheduled = harmonyToScheduled(melody, harmony, bpm);
-        if (scheduled.length > 0) {
-          handles.push(schedulePlayback(ctx, scheduled, "softSynth", { gain: harmonyVolume, startAt }));
-        }
+      if (vocalBuffer) handles.push(playAudioBuffer(ctx, vocalBuffer, { gain: 0.8, startAt }));
+
+      const scheduled = harmonyToScheduled(melody, harmony, bpm);
+      if (scheduled.length > 0) {
+        handles.push(schedulePlayback(ctx, scheduled, "softSynth", { gain: 0.6, startAt }));
       }
 
       handlesRef.current = handles;
-      setPlaying(true);
+      setPlayingMode(mode);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "재생에 실패했습니다.");
     }
   }
 
-  async function handleExportMp3() {
+  async function handleExportMp3(mode: MixMode) {
     setError(null);
-    setExporting(true);
+    setExportingMode(mode);
     try {
       const ctx = getAudioContext();
-      const [vocalBuffer, instrumentalBuffer] = await Promise.all([
-        decodeAudioBlob(ctx, vocalStemBlob),
+      const [instrumentalBuffer, vocalBuffer] = await Promise.all([
         decodeAudioBlob(ctx, instrumentalStemBlob),
+        mode === "instrumentalHarmonyVocal" ? decodeAudioBlob(ctx, vocalStemBlob) : Promise.resolve(null),
       ]);
       const rendered = await renderMixOffline({
         melody,
         harmony,
         bpm,
-        vocalBuffer: vocalMuted ? null : vocalBuffer,
-        instrumentalBuffer: instrumentalMuted ? null : instrumentalBuffer,
-        vocalGain: vocalVolume,
-        instrumentalGain: instrumentalVolume,
-        harmonyGain: harmonyMuted ? 0 : harmonyVolume,
+        vocalBuffer,
+        instrumentalBuffer,
+        vocalGain: 0.8,
+        instrumentalGain: 0.8,
+        harmonyGain: 0.6,
       });
       const mp3Bytes = encodeAudioBufferToMp3(rendered);
-      downloadBlob(mp3Bytes, "duet-mix.mp3", "audio/mpeg");
+      const suffix = MODES.find((m) => m.id === mode)?.fileSuffix ?? mode;
+      downloadBlob(mp3Bytes, `duet-${suffix}.mp3`, "audio/mpeg");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "MP3 내보내기에 실패했습니다.");
     } finally {
-      setExporting(false);
+      setExportingMode(null);
     }
   }
 
   return (
     <div className="audio-mix-player">
-      <div className="audio-mix-row">
-        <label className="audio-mix-track">
-          <input type="checkbox" checked={!vocalMuted} onChange={(e) => setVocalMuted(!e.target.checked)} />
-          원곡 보컬
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={vocalVolume}
-            disabled={vocalMuted}
-            onChange={(e) => setVocalVolume(Number(e.target.value))}
-          />
-        </label>
-        <label className="audio-mix-track">
-          <input type="checkbox" checked={!instrumentalMuted} onChange={(e) => setInstrumentalMuted(!e.target.checked)} />
-          반주
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={instrumentalVolume}
-            disabled={instrumentalMuted}
-            onChange={(e) => setInstrumentalVolume(Number(e.target.value))}
-          />
-        </label>
-        <label className="audio-mix-track">
-          <input
-            type="checkbox"
-            checked={!harmonyMuted}
-            disabled={!hasHarmony}
-            onChange={(e) => setHarmonyMuted(!e.target.checked)}
-          />
-          생성된 화음
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={harmonyVolume}
-            disabled={harmonyMuted || !hasHarmony}
-            onChange={(e) => setHarmonyVolume(Number(e.target.value))}
-          />
-        </label>
-      </div>
-
-      <div className="audio-mix-row">
-        <button type="button" onClick={() => void play()}>
-          재생
-        </button>
-        <button type="button" onClick={stop} disabled={!playing}>
-          정지
-        </button>
-        <button type="button" onClick={() => void handleExportMp3()} disabled={exporting}>
-          {exporting ? "MP3 내보내는 중..." : "MP3로 내보내기"}
-        </button>
-      </div>
+      {MODES.map((mode) => (
+        <div key={mode.id} className="audio-mix-mode">
+          <span className="audio-mix-mode-label">{mode.label}</span>
+          <div className="audio-mix-mode-actions">
+            {playingMode === mode.id ? (
+              <button type="button" onClick={stop}>
+                정지
+              </button>
+            ) : (
+              <button type="button" onClick={() => void play(mode.id)}>
+                재생
+              </button>
+            )}
+            <button type="button" onClick={() => void handleExportMp3(mode.id)} disabled={exportingMode !== null}>
+              {exportingMode === mode.id ? "저장하는 중..." : "MP3로 저장"}
+            </button>
+          </div>
+        </div>
+      ))}
 
       {error && <p className="audio-mix-error">{error}</p>}
-      <p className="audio-mix-hint">
-        체크를 해제하면 해당 트랙이 빠집니다 — 예: 반주와 화음만 체크 해제하면 보컬만, 원곡 보컬을 해제하면 반주 +
-        화음만 들을 수 있습니다.
-      </p>
     </div>
   );
 }

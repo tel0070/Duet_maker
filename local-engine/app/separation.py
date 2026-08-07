@@ -26,6 +26,7 @@ from pathlib import Path
 import demucs.separate
 import librosa
 import numpy as np
+import torch
 
 MODEL_NAME = "htdemucs"
 
@@ -52,6 +53,11 @@ def _ensure_bundled_ffmpeg_on_path() -> None:
 
 
 _ensure_bundled_ffmpeg_on_path()
+
+# Belt-and-suspenders alongside main.py's _cap_cpu_threads() env vars: this
+# is torch's own authoritative thread-count API, called directly in case a
+# given torch build doesn't honor OMP_NUM_THREADS the same way.
+torch.set_num_threads(max(1, (os.cpu_count() or 4) - 1))
 
 
 class SeparationError(RuntimeError):

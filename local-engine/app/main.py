@@ -11,6 +11,28 @@ honest limits of "cancel".
 
 from __future__ import annotations
 
+import os
+
+
+def _cap_cpu_threads() -> None:
+    """A user reported their whole computer - not just this app - freezing
+    while a real song was processing. Root cause: torch (demucs) and
+    numpy/scipy's BLAS backends default to using every CPU core for
+    inference, which starves every other running program. These env vars
+    are read once when each library initializes its thread pool, so this
+    must run before the `from . import ...` below, which transitively
+    imports both (separation.py -> demucs -> torch; pitch.py -> basic_pitch
+    -> tensorflow). Leaves one core free rather than going lower - this is
+    still genuinely CPU-heavy on-device ML inference, just no longer able
+    to lock out everything else on the machine.
+    """
+    threads = str(max(1, (os.cpu_count() or 4) - 1))
+    for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ.setdefault(var, threads)
+
+
+_cap_cpu_threads()
+
 import shutil
 import sys
 import tempfile

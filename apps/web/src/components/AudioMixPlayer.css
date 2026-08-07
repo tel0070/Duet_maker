@@ -1,29 +1,30 @@
 .audio-mix-player {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
-.audio-mix-row {
+.audio-mix-mode {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(139, 123, 255, 0.35);
+  border-radius: 10px;
 }
 
-.audio-mix-track {
+.audio-mix-mode-label {
+  font-weight: 600;
+}
+
+.audio-mix-mode-actions {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 8px;
 }
 
 .audio-mix-error {
   color: #ff8b8b;
   font-size: 0.82rem;
-}
-
-.audio-mix-hint {
-  color: rgba(242, 240, 255, 0.65);
-  font-size: 0.78rem;
 }

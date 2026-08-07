@@ -112,6 +112,16 @@ redone from scratch without this history:
    (BtbN, LGPL) in the build workflow, bundling both via `--add-binary`,
    and prepending their directory to `PATH` at import time in
    `app/separation.py` (a no-op outside the frozen exe).
+7. (Not an exe-specific bug — reported by a real user running the exe on
+   their own machine) The whole computer, not just this app, froze while a
+   real song was processing. Cause: torch (demucs) and numpy/scipy's BLAS
+   backends default to using every CPU core, starving every other running
+   program. Fixed by capping thread counts (`OMP_NUM_THREADS` and friends
+   in `app/main.py`'s `_cap_cpu_threads()`, plus `torch.set_num_threads()`
+   directly in `app/separation.py`) to `cpu_count - 1`, leaving one core
+   free. This does not make separation itself faster — on-device ML
+   inference on a CPU is genuinely slow, minutes for a real song — it just
+   stops it from locking out everything else while it runs.
 
 The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —
