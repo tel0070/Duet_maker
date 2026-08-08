@@ -206,6 +206,37 @@ redone from scratch without this history:
       confirming the scheduled result still matches the note's real
       timestamp exactly, plus a real browser run against the same wrong
       map with zero console errors.
+11. Reported again by the same real user after fix 10 shipped, still
+    "박자가 안 맞음". This time the cause was **measured, not guessed** —
+    and it was never a timing problem at all, which is why fixes 9 and 10
+    both changed nothing audible. Running basic-pitch on the user's own
+    song and counting what it returns:
+
+    | | notes | per sec | mean simultaneous | max | timeline covered |
+    |---|---|---|---|---|---|
+    | raw basic-pitch | 447 | 7.45 | 3.25 | 7 | 98.5% |
+    | after this fix | 117 | 1.95 | 0.89 | 1 | 88.7% |
+
+    basic-pitch is a *polyphonic* transcriber. Its raw output is not a
+    melody — it is 3+ overlapping notes at a time, changing 7+ times a
+    second, covering essentially the whole timeline. `pitch.py` passed
+    that straight through, and harmony-core emits exactly one harmony note
+    per melody note (planner.ts loops over every note), so the generated
+    harmony became a continuous, dense cluster that never articulated and
+    never rested. That is heard as "the harmony has no rhythm at all" —
+    which no amount of fixing the seconds<->beats math could ever address.
+
+    Fixed by adding `melody_line.py`, which reduces the raw event list to
+    a single singable line *before* it reaches harmony-core: a monophonic
+    sweep (louder note wins; a louder note starting mid-note truncates the
+    held one rather than dropping it, since real singing does move on
+    mid-note), rejoining same-pitch fragments split by vibrato/consonants,
+    then dropping what is still too short to sing. The gaps between sung
+    phrases survive as real rests, so the harmony now follows the vocal's
+    phrasing. Verified by unit tests on the pure reduction logic plus the
+    before/after measurement above on the user's real song (note the
+    measurement was run on the full mix, not a separated vocal stem, so a
+    real run's numbers should be cleaner still).
 
 The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —

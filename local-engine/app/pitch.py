@@ -2,6 +2,11 @@
 to turn a vocal stem into NoteEvent-shaped dicts. Meant to run on the
 *separated vocal stem*, not the full mix — polyphonic accompaniment behind
 an untouched full mix would confuse a monophonic melody line with chords.
+
+basic-pitch's raw output is polyphonic and fragmented even on a clean vocal
+stem, so it is reduced to a single singable line first — see
+`melody_line.py` for the measurements that motivated that and why it
+matters so much downstream.
 """
 
 from __future__ import annotations
@@ -10,7 +15,7 @@ import uuid
 
 from basic_pitch.inference import predict
 
-from . import beatmath
+from . import beatmath, melody_line
 
 MIN_NOTE_BEATS = 1 / 32
 
@@ -18,16 +23,16 @@ MIN_NOTE_BEATS = 1 / 32
 def analyze_pitch(path: str, beat_times: list[float]) -> list[dict]:
     _model_output, _midi_data, note_events = predict(path)
 
-    notes = []
-    for event in note_events:
-        # basic-pitch's note_events tuples are
-        # (start_time_s, end_time_s, pitch_midi, amplitude, pitch_bend_frames).
-        # `amplitude` is the model's own note-loudness estimate (0-1ish) — the
-        # closest thing to a per-note confidence this library exposes, so it
-        # is used for both velocity and confidence below rather than inventing
-        # a separate number.
-        start_s, end_s, pitch_midi, amplitude = event[0], event[1], event[2], event[3]
+    # basic-pitch's note_events tuples are
+    # (start_time_s, end_time_s, pitch_midi, amplitude, pitch_bend_frames).
+    # `amplitude` is the model's own note-loudness estimate (0-1ish) — the
+    # closest thing to a per-note confidence this library exposes, so it is
+    # used for both velocity and confidence below rather than inventing a
+    # separate number.
+    raw_events = [(float(e[0]), float(e[1]), int(round(float(e[2]))), float(e[3])) for e in note_events]
 
+    notes = []
+    for start_s, end_s, pitch_midi, amplitude in melody_line.to_monophonic_line(raw_events):
         # beat_times is the real detected beat grid from keychords.py's tempo
         # analysis (see beatmath.seconds_to_beats_with_map) — using it instead
         # of a single constant bpm keeps the melody's beat positions accurate
