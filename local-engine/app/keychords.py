@@ -36,7 +36,25 @@ def analyze_tempo_key_chords(path: str) -> dict:
 
     merged = _merge_consecutive_chords(raw_chords)
 
-    beat_times_list = [float(t) for t in beat_times]
+    # `beat_times` (from beat_synced_chroma) is a *chord-segmentation*
+    # boundary list: [0.0, real beat 1, real beat 2, ..., real beat N,
+    # track duration] - the first and last entries are NOT real beats, just
+    # "start of song" / "end of song" markers so every chord segment has a
+    # boundary on both sides (see audio_features.py's docstring). Using
+    # this array's edges as if they were real beat 0 and the last real beat
+    # would make seconds_to_beats_with_map treat "song start -> first real
+    # beat" (often several real seconds, e.g. an intro) as a single beat
+    # interval - a huge, fake tempo distortion right at the start (and the
+    # mirror case at the end). Stripping the two bookends leaves only real
+    # detected beat positions, which is what every *_with_map conversion
+    # (and the beatTimes this endpoint exposes to the frontend) should
+    # anchor to; seconds_to_beats_with_map's own edge extrapolation already
+    # handles notes before the first beat / after the last one correctly.
+    real_beat_times = beat_times[1:-1]
+    if len(real_beat_times) < 2:
+        real_beat_times = beat_times
+
+    beat_times_list = [float(t) for t in real_beat_times]
 
     chord_events = []
     for chord in merged:

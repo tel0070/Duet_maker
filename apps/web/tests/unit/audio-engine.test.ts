@@ -146,6 +146,53 @@ describe("notesToScheduled / harmonyToScheduled", () => {
       { frequency: midiToFrequency(64), startTime: 5, duration: 0.5, velocity: 90 },
     ]);
   });
+
+  it("prefers a melody note's own exact real-world timestamp over the tempo map/bpm when present", () => {
+    // A deliberately WRONG beat-time map (as if beat-tracking mis-measured
+    // the song entirely, e.g. a ballad with sparse/soft percussion) - if
+    // startTimeSeconds/durationSeconds are honored, the result must match
+    // them exactly regardless of how wrong the map is.
+    const wrongBeatTimes = [0, 100, 200];
+    const melody = [
+      {
+        id: "n1",
+        pitch: 60,
+        startTime: 5,
+        duration: 1,
+        velocity: 90,
+        confidence: 1,
+        source: "user-input" as const,
+        editable: true,
+        startTimeSeconds: 12.34,
+        durationSeconds: 0.56,
+      },
+    ];
+    const scheduled = notesToScheduled(melody, wrongBeatTimes);
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0]!.frequency).toBeCloseTo(midiToFrequency(60), 10);
+    expect(scheduled[0]!.startTime).toBeCloseTo(12.34, 10);
+    expect(scheduled[0]!.duration).toBeCloseTo(0.56, 10);
+    expect(scheduled[0]!.velocity).toBe(90);
+
+    const harmony = [
+      {
+        originalNoteId: "n1",
+        generatedPitch: 64,
+        relationToMelody: "thirdAbove" as const,
+        chordRole: "third" as const,
+        motionType: "none" as const,
+        styleReason: "",
+        scoreBreakdown: {},
+        confidence: 0.5,
+      },
+    ];
+    const scheduledHarmony = harmonyToScheduled(melody, harmony, wrongBeatTimes);
+    expect(scheduledHarmony).toHaveLength(1);
+    expect(scheduledHarmony[0]!.frequency).toBeCloseTo(midiToFrequency(64), 10);
+    expect(scheduledHarmony[0]!.startTime).toBeCloseTo(12.34, 10);
+    expect(scheduledHarmony[0]!.duration).toBeCloseTo(0.56, 10);
+    expect(scheduledHarmony[0]!.velocity).toBe(90);
+  });
 });
 
 describe("sliceScheduledToRegion", () => {

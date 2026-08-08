@@ -41,6 +41,33 @@ function beatsToSecondsAny(beats: number, tempo: TempoInput): number {
   return typeof tempo === "number" ? beatsToSeconds(beats, tempo) : beatsToSecondsWithMap(beats, tempo);
 }
 
+/** A NoteEvent that may also carry its exact real-world timestamp (seconds)
+ * from local-engine's pitch detection - see local-engine-client.ts's
+ * `MelodyNote`. Optional so plain NoteEvent[] (manual/MIDI-imported melody,
+ * with no real recording to time against) still works unchanged. */
+interface NoteWithOptionalSeconds extends NoteEvent {
+  startTimeSeconds?: number;
+  durationSeconds?: number;
+}
+
+/**
+ * Prefers the note's own exact real-world timestamp over converting
+ * startTime/duration (beats) through a tempo map or scalar bpm, whenever
+ * that timestamp is available. The tempo map/bpm is always only an
+ * *estimate* of the song's real tempo - ballads especially (sparse
+ * percussion, expressive rubato vocal timing) are exactly where that
+ * estimate is least reliable, and no amount of improving the estimate
+ * fixes that. A note carrying its own real detected instant can't drift
+ * relative to the real recording no matter how good or bad that estimate
+ * is, because it never goes through it.
+ */
+function noteStartEndSeconds(note: NoteWithOptionalSeconds, tempo: TempoInput): [number, number] {
+  if (typeof note.startTimeSeconds === "number" && typeof note.durationSeconds === "number") {
+    return [note.startTimeSeconds, note.startTimeSeconds + note.durationSeconds];
+  }
+  return [beatsToSecondsAny(note.startTime, tempo), beatsToSecondsAny(note.startTime + note.duration, tempo)];
+}
+
 export interface ScheduledNote {
   frequency: number;
   /** Seconds, relative to playback start (not `ctx.currentTime`). */
@@ -50,7 +77,7 @@ export interface ScheduledNote {
   velocity: number;
 }
 
-export function notesToScheduled(notes: NoteEvent[], tempo: TempoInput): ScheduledNote[] {
+export function notesToScheduled(notes: NoteWithOptionalSeconds[], tempo: TempoInput): ScheduledNote[] {
   return notes.map((n) => {
     // Duration is derived from (end - start), not converted on its own:
     // with a real beat-time map, the interval spanning beat 5-6 can have a
@@ -58,8 +85,7 @@ export function notesToScheduled(notes: NoteEvent[], tempo: TempoInput): Schedul
     // converting a *relative* length in isolation (as if it always started
     // at beat 0) would silently use the wrong one. This form is exact for
     // the scalar-bpm case too, since that conversion is linear anyway.
-    const startTime = beatsToSecondsAny(n.startTime, tempo);
-    const endTime = beatsToSecondsAny(n.startTime + n.duration, tempo);
+    const [startTime, endTime] = noteStartEndSeconds(n, tempo);
     return {
       frequency: midiToFrequency(n.pitch),
       startTime,
@@ -99,17 +125,20 @@ export function sliceScheduledToRegion(
 }
 
 /** Rests (`generatedPitch: null`) and notes missing their source melody note are skipped. */
-export function harmonyToScheduled(melody: NoteEvent[], harmony: HarmonyNote[], tempo: TempoInput): ScheduledNote[] {
+export function harmonyToScheduled(
+  melody: NoteWithOptionalSeconds[],
+  harmony: HarmonyNote[],
+  tempo: TempoInput,
+): ScheduledNote[] {
   const melodyById = new Map(melody.map((n) => [n.id, n]));
   const scheduled: ScheduledNote[] = [];
   for (const h of harmony) {
     if (h.generatedPitch === null) continue;
     const source = melodyById.get(h.originalNoteId);
     if (!source) continue;
-    // See notesToScheduled's comment: duration must come from (end - start)
-    // with a tempo map, not a standalone conversion of the relative length.
-    const startTime = beatsToSecondsAny(source.startTime, tempo);
-    const endTime = beatsToSecondsAny(source.startTime + source.duration, tempo);
+    // See notesToScheduled's comment: prefers the source melody note's own
+    // exact real-world timestamp over the tempo map/bpm, when available.
+    const [startTime, endTime] = noteStartEndSeconds(source, tempo);
     scheduled.push({
       frequency: midiToFrequency(h.generatedPitch),
       startTime,
@@ -258,7 +287,7 @@ export function playAudioBuffer(ctx: BaseAudioContext, buffer: AudioBuffer, opti
 }
 
 export interface MixRenderOptions {
-  melody: NoteEvent[];
+  melody: NoteWithOptionalSeconds[];
   harmony?: HarmonyNote[];
   /** A single bpm (legacy, constant-tempo) or a real detected beat-time
    * map — see `beatsToSecondsWithMap`. Pass the map whenever real recorded

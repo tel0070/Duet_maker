@@ -171,6 +171,41 @@ redone from scratch without this history:
    change the old scalar formula gets measurably wrong) and a real browser
    run confirming the new `beat_times` field actually reaches the analyze
    endpoints.
+10. Reported by the same real user, on the very next attempt after fix 9
+    shipped: still completely off-beat, on a ballad. Two things found:
+    - A real bug in fix 9 itself: `keychords.py`'s `beat_times` (from
+      `audio_features.beat_synced_chroma`) is `[0.0, real beat 1, ..., real
+      beat N, track duration]` — a *chord-segmentation* boundary list, not
+      a clean beat grid. Its first/last entries are artificial "song
+      start"/"song end" markers, not real beats, which would make
+      `seconds_to_beats_with_map` treat "song start -> first real beat"
+      (often several real seconds, e.g. an intro) as a single fake beat
+      interval. Fixed by stripping both bookends before using this as a
+      beat-time map (`keychords.py`) — `seconds_to_beats_with_map`'s own
+      edge-extrapolation already handles notes before/after the real beats
+      correctly once the fake bookends are gone.
+    - The bigger issue: none of this matters much if the underlying
+      beat-tracking estimate itself is unreliable, which is exactly the
+      case for a ballad - sparse/soft percussion gives `librosa.beat_track`
+      little to lock onto, and an expressively-sung (rubato) vocal doesn't
+      sit on a strict metric grid anyway. No amount of improving the
+      seconds<->beats *conversion* fixes a fundamentally shaky *estimate*.
+      Fixed by not needing the estimate at all for playback: `pitch.py`
+      now also returns each note's raw, unquantized real-world
+      `startTimeSeconds`/`durationSeconds` straight from basic-pitch,
+      alongside the existing beats fields (which harmony-core's generation
+      still uses - this is playback-only). `audio-engine.ts`'s
+      `notesToScheduled`/`harmonyToScheduled` prefer these exact
+      timestamps whenever a note carries them, falling back to the
+      tempo-map/bpm conversion only for melody that never came from real
+      audio (manual/MIDI-imported notes). A harmony note built this way
+      can't drift relative to the real vocal recording no matter how
+      good or bad the beat-tracking estimate is, because it never goes
+      through it. Verified with a unit test using a deliberately *wrong*
+      beat-time map (as unreliable as a real mis-tracked ballad) and
+      confirming the scheduled result still matches the note's real
+      timestamp exactly, plus a real browser run against the same wrong
+      map with zero console errors.
 
 The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —

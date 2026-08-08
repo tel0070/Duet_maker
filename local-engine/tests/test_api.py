@@ -99,6 +99,10 @@ def test_pitch_pipeline_recovers_the_known_note_sequence(synthetic_c_major_scale
     for note in notes:
         assert 0.0 <= note["confidence"] <= 1.0
         assert note["source"] == "pitch-detection"
+        # Real, unquantized seconds - not derived from startTime/duration
+        # (beats), so this must independently be a sane, positive interval.
+        assert note["startTimeSeconds"] >= 0
+        assert note["durationSeconds"] > 0
 
 
 def test_unknown_job_id_is_a_404():

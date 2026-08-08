@@ -185,6 +185,24 @@ export class LocalEngineStemSeparationProvider extends LocalEngineProviderBase i
   }
 }
 
+/**
+ * A melody note as local-engine's pitch detection actually returns it: the
+ * usual beats-based NoteEvent fields (for harmony-core's generation, which
+ * needs relative musical units) PLUS the exact, unquantized real-world
+ * timestamp basic-pitch detected it at. Audio playback/export should
+ * always prefer `startTimeSeconds`/`durationSeconds` over converting
+ * `startTime`/`duration` back through a beat-tempo map - the map is only
+ * ever an *estimate* of the song's real tempo, and ballads especially
+ * (sparse percussion, expressive rubato vocal timing) are exactly where
+ * that estimate is least reliable. The seconds fields can't drift no
+ * matter how good or bad the beat-tracking estimate is, because they skip
+ * that conversion entirely.
+ */
+export interface MelodyNote extends NoteEvent {
+  startTimeSeconds: number;
+  durationSeconds: number;
+}
+
 export class LocalEnginePitchExtractionProvider extends LocalEngineProviderBase implements PitchExtractionProvider {
   providerId = "local-engine-basic-pitch";
   displayName = "로컬 엔진 (basic-pitch 멜로디 채보)";
@@ -198,13 +216,13 @@ export class LocalEnginePitchExtractionProvider extends LocalEngineProviderBase 
    * interface has no bpm/beatTimes parameter. `analyseFull` below shares
    * one tempo detection across pitch/chords/sections instead of repeating it.
    */
-  async analyseAudio(audio: Blob): Promise<Array<ConfidenceScored<NoteEvent>>> {
+  async analyseAudio(audio: Blob): Promise<Array<ConfidenceScored<MelodyNote>>> {
     this.reset();
     const { beatTimes } = await fetchTempoKeyChords(audio, () => undefined, this.isCancelled, () => undefined);
     return this.analyseAudioWithBeatTimes(audio, beatTimes);
   }
 
-  async analyseAudioWithBeatTimes(audio: Blob, beatTimes: number[]): Promise<Array<ConfidenceScored<NoteEvent>>> {
+  async analyseAudioWithBeatTimes(audio: Blob, beatTimes: number[]): Promise<Array<ConfidenceScored<MelodyNote>>> {
     this.reset();
     const form = audioFormWithBeatTimes(audio, beatTimes);
     const jobId = await startJob("/pitch/analyze", form);
@@ -212,7 +230,7 @@ export class LocalEnginePitchExtractionProvider extends LocalEngineProviderBase 
     await pollUntilDone(jobId, this.trackProgress, this.isCancelled);
     const response = await fetch(`${baseUrl()}/pitch/${jobId}/result`);
     if (!response.ok) throw new Error("멜로디 채보 결과를 가져오지 못했습니다.");
-    const body = (await response.json()) as { notes: ConfidenceScored<NoteEvent>[] };
+    const body = (await response.json()) as { notes: ConfidenceScored<MelodyNote>[] };
     return body.notes;
   }
 }
@@ -260,7 +278,7 @@ export interface FullSongAnalysisResult {
    * seconds<->beats conversion of real audio playback/export. */
   beatTimes: number[];
   chords: ConfidenceScored<ChordEvent>[];
-  melody: Array<ConfidenceScored<NoteEvent>>;
+  melody: Array<ConfidenceScored<MelodyNote>>;
   sections: Array<ConfidenceScored<SongSection>>;
   vocalStemBlob: Blob;
   instrumentalStemBlob: Blob;
@@ -283,7 +301,7 @@ export class LocalEngineAudioAnalysisProvider extends LocalEngineProviderBase im
   private separationProvider = new LocalEngineStemSeparationProvider();
 
   async analyse(audio: Blob): Promise<{
-    melody: Array<ConfidenceScored<NoteEvent>>;
+    melody: Array<ConfidenceScored<MelodyNote>>;
     chords: Array<ConfidenceScored<ChordEvent>>;
     sections: Array<ConfidenceScored<SongSection>>;
   }> {

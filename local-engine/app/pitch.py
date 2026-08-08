@@ -52,6 +52,19 @@ def analyze_pitch(path: str, beat_times: list[float]) -> list[dict]:
                 "confidence": confidence,
                 "source": "pitch-detection",
                 "editable": True,
+                # The raw, unquantized real-world timestamp (seconds), from
+                # basic-pitch directly - before any beat-grid math at all.
+                # harmony-core's generation still uses startTime/duration
+                # (beats) above, but audio playback/export should use these
+                # instead: they can never drift or be thrown off by a shaky
+                # beat-tracking estimate (ballads especially - sparse
+                # percussion and expressive, off-the-grid vocal timing make
+                # automatic beat tracking genuinely unreliable, no matter
+                # how the seconds<->beats math is done), because they skip
+                # that whole conversion and just reuse the exact instant
+                # the sung note was actually detected at.
+                "startTimeSeconds": float(start_s),
+                "durationSeconds": float(end_s - start_s),
             }
         )
 

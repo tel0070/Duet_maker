@@ -1,6 +1,10 @@
-import { DEFAULT_VOCAL_RANGE, type DuetArrangement, type NoteEvent } from "@duet-maker/shared-types";
+import { DEFAULT_VOCAL_RANGE, type DuetArrangement } from "@duet-maker/shared-types";
 import { generateBestArrangement } from "../lib/auto-harmony.js";
-import { LocalEngineAudioAnalysisProvider, type FullSongAnalysisResult } from "../lib/local-engine-client.js";
+import {
+  LocalEngineAudioAnalysisProvider,
+  type FullSongAnalysisResult,
+  type MelodyNote,
+} from "../lib/local-engine-client.js";
 import { create } from "zustand";
 
 export type SessionStatus = "idle" | "processing" | "ready" | "error";
@@ -15,7 +19,7 @@ export interface SessionState {
    * `beatTimes` instead (see audio-engine.ts's beatsToSecondsWithMap). */
   bpm: number;
   beatTimes: number[];
-  melody: NoteEvent[];
+  melody: MelodyNote[];
   arrangement: DuetArrangement | null;
   vocalStemBlob: Blob | null;
   instrumentalStemBlob: Blob | null;
@@ -31,7 +35,7 @@ function blankResultFields() {
   return {
     bpm: 120,
     beatTimes: [] as number[],
-    melody: [] as NoteEvent[],
+    melody: [] as MelodyNote[],
     arrangement: null as DuetArrangement | null,
     vocalStemBlob: null as Blob | null,
     instrumentalStemBlob: null as Blob | null,

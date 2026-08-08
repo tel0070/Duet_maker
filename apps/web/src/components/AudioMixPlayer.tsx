@@ -1,4 +1,4 @@
-import type { HarmonyNote, NoteEvent } from "@duet-maker/shared-types";
+import type { HarmonyNote } from "@duet-maker/shared-types";
 import { useRef, useState } from "react";
 import {
   decodeAudioBlob,
@@ -9,6 +9,7 @@ import {
   type PlaybackHandle,
 } from "../lib/audio-engine.js";
 import { downloadBlob } from "../lib/download.js";
+import type { MelodyNote } from "../lib/local-engine-client.js";
 import { encodeAudioBufferToMp3 } from "../lib/mp3-export.js";
 import "./AudioMixPlayer.css";
 
@@ -17,11 +18,12 @@ export type MixMode = "instrumentalHarmony" | "instrumentalHarmonyVocal";
 export interface AudioMixPlayerProps {
   vocalStemBlob: Blob;
   instrumentalStemBlob: Blob;
-  melody: NoteEvent[];
+  melody: MelodyNote[];
   harmony: HarmonyNote[];
-  /** The real detected beat-time map, not a single bpm — this is mixing
-   * against real recorded audio, so it must stay locked to the song's
-   * actual (possibly non-constant) tempo. See beatsToSecondsWithMap. */
+  /** The real detected beat-time map, not a single bpm — used as a
+   * fallback for any melody note missing its own exact real-world
+   * timestamp (see MelodyNote/beatsToSecondsWithMap). Real recorded audio
+   * needs to stay locked to the song's actual tempo either way. */
   beatTimes: number[];
 }
 
