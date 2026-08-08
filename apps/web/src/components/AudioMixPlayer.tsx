@@ -33,6 +33,25 @@ const MODES: { id: MixMode; label: string; fileSuffix: string }[] = [
 ];
 
 /**
+ * Mix levels, measured rather than guessed. Subtracting two real exports of
+ * the same song (identical stems, different harmony) isolated the harmony
+ * layer: at the previous settings it came out around 0.07 RMS against a
+ * 0.15 RMS full mix — i.e. the guide harmony was about as loud as the
+ * entire rest of the song, in `softSynth`'s raw *sawtooth*, the harshest
+ * waveform available. Even perfectly on time that reads as "something is
+ * wrong with this", which is most of why the harmony kept sounding broken.
+ *
+ * `humming` (a sine) is the closest thing here to a voice and far less
+ * harsh; the gain sits the harmony clearly under the song instead of on top
+ * of it. The stem gains also leave real headroom — demucs's two stems sum
+ * back to the original, so 0.8 + 0.8 + a 0.3-peak harmony could reach ~1.1
+ * and clip on loud passages.
+ */
+const HARMONY_VOICE = "humming" as const;
+const HARMONY_GAIN = 0.18;
+const STEM_GAIN = 0.75;
+
+/**
  * Two fixed presets instead of the old per-track mute checkboxes + volume
  * sliders — that flexibility was exactly the kind of "왜 이게 있는지 모르겠음"
  * clutter this app got rewritten to remove. Both presets always include the
@@ -75,13 +94,13 @@ export function AudioMixPlayer({
         mode === "instrumentalHarmonyVocal" ? decodeAudioBlob(ctx, vocalStemBlob) : Promise.resolve(null),
       ]);
       const startAt = ctx.currentTime + 0.05;
-      const handles: PlaybackHandle[] = [playAudioBuffer(ctx, instrumentalBuffer, { gain: 0.8, startAt })];
+      const handles: PlaybackHandle[] = [playAudioBuffer(ctx, instrumentalBuffer, { gain: STEM_GAIN, startAt })];
 
-      if (vocalBuffer) handles.push(playAudioBuffer(ctx, vocalBuffer, { gain: 0.8, startAt }));
+      if (vocalBuffer) handles.push(playAudioBuffer(ctx, vocalBuffer, { gain: STEM_GAIN, startAt }));
 
       const scheduled = harmonyToScheduled(melody, harmony, beatTimes);
       if (scheduled.length > 0) {
-        handles.push(schedulePlayback(ctx, scheduled, "softSynth", { gain: 0.6, startAt }));
+        handles.push(schedulePlayback(ctx, scheduled, HARMONY_VOICE, { gain: HARMONY_GAIN, startAt }));
       }
 
       handlesRef.current = handles;
@@ -106,9 +125,10 @@ export function AudioMixPlayer({
         bpm: beatTimes,
         vocalBuffer,
         instrumentalBuffer,
-        vocalGain: 0.8,
-        instrumentalGain: 0.8,
-        harmonyGain: 0.6,
+        vocalGain: STEM_GAIN,
+        instrumentalGain: STEM_GAIN,
+        harmonyGain: HARMONY_GAIN,
+        harmonyVoice: HARMONY_VOICE,
       });
       const mp3Bytes = encodeAudioBufferToMp3(rendered);
       const suffix = MODES.find((m) => m.id === mode)?.fileSuffix ?? mode;

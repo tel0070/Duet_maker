@@ -237,6 +237,36 @@ redone from scratch without this history:
     before/after measurement above on the user's real song (note the
     measurement was run on the full mix, not a separated vocal stem, so a
     real run's numbers should be cleaner still).
+12. Found by subtracting two of the user's real exports of the same song
+    (identical stems, different harmony), which isolates the harmony layer
+    and made the level measurable for the first time — and it was badly
+    wrong in a way none of fixes 9-11 touched:
+
+    - The harmony was **louder than the rest of the song**. Steady-state,
+      `softSynth` at `gain: 0.6` is 0.173 RMS against a 0.151 RMS full
+      mix (115%); allowing for the envelope and velocity spread, the real
+      isolated harmony measured ~0.069 RMS, still ~46% of the whole mix.
+      A guide layer that loud stops being a guide.
+    - It was a raw **sawtooth** — the harshest waveform in the voice table,
+      full of upper harmonics, over a produced ballad.
+    - The mix could **clip**: demucs's two stems sum back to the original,
+      so `0.8 + 0.8` stems plus a 0.30-peak harmony reaches ~1.10.
+
+    Any one of those makes the result read as "something is wrong with
+    this" no matter how accurate the timing is, which is a large part of
+    why the harmony kept sounding broken through three timing/melody
+    fixes. Fixed in `AudioMixPlayer.tsx` by switching the harmony to
+    `humming` (a sine — the closest thing here to a voice), dropping its
+    gain to 0.18 (8.7 dB quieter, so it sits under the song), and pulling
+    the stem gains to 0.75 for real headroom (worst-case peak 0.84, no
+    clipping). Levels are named constants there with the measurements in
+    the comment, not scattered magic numbers.
+
+    Honest remaining limitation: this is still a Web-Audio oscillator, not
+    a singing voice. It is usable as a *guide* for hearing the harmony
+    line, and the harmony MIDI download is the artifact meant for actually
+    producing the part with a real voice or instrument. See
+    `docs/MODEL_RESEARCH.md`'s `VocalSynthesisProvider` note.
 
 The static-file-serving side of this (step 4) was verified locally
 against a real `apps/web` production build via FastAPI's `TestClient` —
